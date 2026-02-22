@@ -25,10 +25,11 @@ const NetworkTools = (() => {
   function createUI() {
     if (container) return;
     container = document.createElement('div');
-    container.className = 'ganj-ext-network-tools hidden';
+    container.className = 'ganj-ext-network-tools hidden ganj-modal-panel';
+    container.id = 'ganj-modal-networkTools';
     container.innerHTML = `
       <div class="network-tools-panel">
-        <div class="network-tools-header">
+        <div class="network-tools-header ganj-modal-header">
           <h3>🌐 Network Tools</h3>
           <div class="header-controls">
             <span class="shortcut-hint">Ctrl+Shift+N</span>
@@ -162,6 +163,10 @@ const NetworkTools = (() => {
       </div>
     `;
     document.body.appendChild(container);
+    if (window.ModalShell && container) {
+      window.ModalShell.makeDraggable(container, 'networkTools');
+      window.ModalShell.makeResizable(container, 'networkTools');
+    }
     bindEvents();
   }
 
@@ -602,6 +607,7 @@ const NetworkTools = (() => {
 
   function show() {
     createUI();
+    if (window.ModalShell && container) window.ModalShell.restorePosition(container, 'networkTools');
     container.classList.remove('hidden');
     isVisible = true;
   }

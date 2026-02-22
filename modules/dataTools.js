@@ -12,10 +12,11 @@ const DataTools = (() => {
   function createUI() {
     if (container) return;
     container = document.createElement('div');
-    container.className = 'ganj-ext-data-tools hidden';
+    container.className = 'ganj-ext-data-tools hidden ganj-modal-panel';
+    container.id = 'ganj-modal-dataTools';
     container.innerHTML = `
       <div class="data-tools-panel">
-        <div class="data-tools-header">
+        <div class="data-tools-header ganj-modal-header">
           <h3>📊 Data Tools</h3>
           <div class="header-controls">
             <span class="shortcut-hint">Ctrl+Shift+D</span>
@@ -172,6 +173,10 @@ const DataTools = (() => {
       </div>
     `;
     document.body.appendChild(container);
+    if (window.ModalShell && container) {
+      window.ModalShell.makeDraggable(container, 'dataTools');
+      window.ModalShell.makeResizable(container, 'dataTools');
+    }
     bindEvents();
   }
 
@@ -607,7 +612,12 @@ const DataTools = (() => {
     setTimeout(() => n.remove(), 2500);
   }
 
-  function show() { createUI(); container.classList.remove('hidden'); isVisible = true; }
+  function show() {
+    createUI();
+    if (window.ModalShell && container) window.ModalShell.restorePosition(container, 'dataTools');
+    container.classList.remove('hidden');
+    isVisible = true;
+  }
   function hide() { if (container) container.classList.add('hidden'); isVisible = false; }
   function toggle() { isVisible ? hide() : show(); }
 

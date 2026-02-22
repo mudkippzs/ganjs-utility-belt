@@ -23,14 +23,15 @@ const AutoRefresh = (() => {
     if (container) return;
 
     container = document.createElement('div');
-    container.className = 'auto-refresh-panel hidden';
+    container.className = 'auto-refresh-panel hidden ganj-modal-panel';
+    container.id = 'ganj-modal-autoRefresh';
     container.innerHTML = `
       <div class="auto-refresh-modal">
-        <div class="refresh-header">
+        <div class="refresh-header ganj-modal-header">
           <h3>⏱️ Smart Auto-Refresh</h3>
           <button class="refresh-close">✕</button>
         </div>
-        <div class="refresh-settings">
+        <div class="refresh-settings ganj-modal-body">
           <div class="setting-group">
             <label>Refresh Interval:</label>
             <select id="refreshInterval">
@@ -93,6 +94,10 @@ const AutoRefresh = (() => {
     `;
 
     document.body.appendChild(container);
+    if (window.ModalShell && container) {
+      window.ModalShell.makeDraggable(container, 'autoRefresh');
+      window.ModalShell.makeResizable(container, 'autoRefresh');
+    }
     attachEventListeners();
   }
 
@@ -276,6 +281,7 @@ const AutoRefresh = (() => {
 
   function show() {
     if (!container) createInterface();
+    if (window.ModalShell && container) window.ModalShell.restorePosition(container, 'autoRefresh');
     container.classList.remove('hidden');
   }
 

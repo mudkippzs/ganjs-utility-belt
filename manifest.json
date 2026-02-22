@@ -39,6 +39,7 @@
     "js": [
       "modules/constants.js",
       "libs/marked.min.js",
+      "modules/modalShell.js",
       "modules/stickyNotes.js",
       "modules/pomodoro.js",
       "modules/pomodoroOverlay.js",

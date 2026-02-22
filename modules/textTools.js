@@ -14,12 +14,12 @@ const TextTools = (() => {
     toolsContainer = document.createElement('div');
     toolsContainer.className = 'text-tools hidden';
     toolsContainer.innerHTML = `
-      <div class="tools-panel">
-        <div class="tools-header">
+      <div class="tools-panel ganj-modal-panel" id="ganj-modal-textTools">
+        <div class="tools-header ganj-modal-header">
           <h3>📝 Text Tools</h3>
           <button class="tools-close">✕</button>
         </div>
-        
+        <div class="ganj-modal-body">
         <div class="text-input-section">
           <textarea id="textInput" placeholder="Enter or paste your text here..."></textarea>
           <div class="text-stats">
@@ -85,10 +85,16 @@ const TextTools = (() => {
             <button id="clearText" class="btn-secondary">🗑️ Clear</button>
           </div>
         </div>
+        </div>
       </div>
     `;
 
     document.body.appendChild(toolsContainer);
+    const modalEl = toolsContainer.querySelector('.tools-panel');
+    if (window.ModalShell && modalEl) {
+      window.ModalShell.makeDraggable(modalEl, 'textTools');
+      window.ModalShell.makeResizable(modalEl, 'textTools');
+    }
     attachEventListeners();
   }
 
@@ -367,6 +373,8 @@ const TextTools = (() => {
 
   function show() {
     if (!toolsContainer) createToolsContainer();
+    const modalEl = toolsContainer.querySelector('.tools-panel');
+    if (window.ModalShell && modalEl) window.ModalShell.restorePosition(modalEl, 'textTools');
     toolsContainer.classList.remove('hidden');
     isVisible = true;
     

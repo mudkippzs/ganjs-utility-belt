@@ -16,12 +16,12 @@ const ColorTools = (() => {
     toolsContainer = document.createElement('div');
     toolsContainer.className = 'color-tools hidden';
     toolsContainer.innerHTML = `
-      <div class="tools-panel">
-        <div class="tools-header">
+      <div class="tools-panel ganj-modal-panel" id="ganj-modal-colorTools">
+        <div class="tools-header ganj-modal-header">
           <h3>🎨 Color & Design Tools</h3>
           <button class="tools-close">✕</button>
         </div>
-        
+        <div class="ganj-modal-body">
         <div class="color-picker-section">
           <button id="startEyedropper" class="tool-btn">🎯 Color Picker</button>
           <div class="picked-color" id="pickedColor">
@@ -82,10 +82,16 @@ const ColorTools = (() => {
             background: linear-gradient(to right, #ff7e5f, #feb47b);
           </div>
         </div>
+        </div>
       </div>
     `;
 
     document.body.appendChild(toolsContainer);
+    const modalEl = toolsContainer.querySelector('.tools-panel');
+    if (window.ModalShell && modalEl) {
+      window.ModalShell.makeDraggable(modalEl, 'colorTools');
+      window.ModalShell.makeResizable(modalEl, 'colorTools');
+    }
     attachEventListeners();
   }
 
@@ -385,6 +391,8 @@ const ColorTools = (() => {
 
   function show() {
     if (!toolsContainer) createToolsContainer();
+    const modalEl = toolsContainer.querySelector('.tools-panel');
+    if (window.ModalShell && modalEl) window.ModalShell.restorePosition(modalEl, 'colorTools');
     toolsContainer.classList.remove('hidden');
     isVisible = true;
   }
