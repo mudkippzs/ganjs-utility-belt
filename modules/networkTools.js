@@ -262,8 +262,10 @@ const NetworkTools = (() => {
   }
 
   function attachEventListeners() {
-    // Close button
     container.querySelector('.network-tools-close').addEventListener('click', hide);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isVisible) hide();
+    });
     
     // Tab switching
     container.querySelectorAll('.network-tab-btn').forEach(btn => {

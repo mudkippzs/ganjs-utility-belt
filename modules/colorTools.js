@@ -377,6 +377,9 @@ const ColorTools = (() => {
         e.preventDefault();
         toggle();
       }
+      if (e.key === 'Escape' && isVisible) {
+        hide();
+      }
     });
   }
 

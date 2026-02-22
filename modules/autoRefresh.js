@@ -97,6 +97,10 @@ const AutoRefresh = (() => {
   }
 
   function attachEventListeners() {
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isVisible) hide();
+    });
+
     const refreshCondition = container.querySelector('#refreshCondition');
     const selectorGroup = container.querySelector('#selectorGroup');
     const valueGroup = container.querySelector('#valueGroup');

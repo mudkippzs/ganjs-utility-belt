@@ -52,6 +52,10 @@ const ImageMagnifier = (() => {
         e.preventDefault();
         toggle();
       }
+      if (e.key === 'Escape' && isEnabled) {
+        disable();
+        showNotification('Image Magnifier disabled');
+      }
     });
   }
 

@@ -459,6 +459,9 @@ console.log({
         e.preventDefault();
         toggle();
       }
+      if (e.key === 'Escape' && isVisible) {
+        hide();
+      }
     });
   }
 

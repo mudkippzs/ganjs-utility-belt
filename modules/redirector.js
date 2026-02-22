@@ -96,6 +96,9 @@ const URLRedirector = (() => {
 
   function attachEventListeners() {
     container.querySelector('.redirector-close').addEventListener('click', hide);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isVisible) hide();
+    });
     container.querySelector('#addRule').addEventListener('click', addRule);
     container.querySelector('#testRule').addEventListener('click', testCurrentRule);
     

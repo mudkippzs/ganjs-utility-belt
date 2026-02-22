@@ -323,8 +323,10 @@ Jane,30,Los Angeles"></textarea>
   }
 
   function attachEventListeners() {
-    // Close button
     container.querySelector('.data-tools-close').addEventListener('click', hide);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isVisible) hide();
+    });
     
     // Tab switching
     container.querySelectorAll('.data-tab-btn').forEach(btn => {
