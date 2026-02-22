@@ -78,7 +78,9 @@
 
 ## Commits (this branch)
 
-- Accent color alignment: pomodoro timer text-shadow and content-styles focus/hover glows use primary (cyan/teal) instead of blue.
-- DRY: site-tools heading uses `.site-tools-heading` class instead of inline style.
+- **0df2bf4** — Code quality pass #83: accent alignment, DRY site-tools heading, review doc  
+  - Accent color alignment: pomodoro timer text-shadow and content-styles focus/hover glows use primary (cyan/teal) instead of blue.  
+  - DRY: site-tools heading uses `.site-tools-heading` class instead of inline style.  
+  - Add this review document.
 
-After pushing, link these commits to issue #83 and set status to **done** (BugTracker was unreachable from this environment).
+After pushing, link commit `0df2bf4` to issue #83 and set status to **done** (BugTracker was unreachable from this environment).
