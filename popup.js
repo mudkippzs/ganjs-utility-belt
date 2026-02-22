@@ -82,17 +82,78 @@ document.addEventListener('DOMContentLoaded', () => {
       name: 'Reddit', icon: '🟠',
       tools: [
         { id: 'r-collapse', icon: '📂', label: 'Collapse All', desc: 'Collapse all comment threads',
-          script: () => { document.querySelectorAll('[data-testid="comment_toggle_icon"], .icon-collapse').forEach(b => { if (!b.closest('[collapsed]')) b.click(); }); }},
+          script: () => {
+            // Old reddit
+            document.querySelectorAll('.comment .expand').forEach(b => { if (b.textContent.trim() === '[–]') b.click(); });
+            // New reddit
+            document.querySelectorAll('[data-testid="comment_toggle_icon"]').forEach(b => { if (!b.closest('[collapsed]')) b.click(); });
+          }},
         { id: 'r-expand', icon: '📖', label: 'Expand All', desc: 'Expand all comment threads',
-          script: () => { document.querySelectorAll('[collapsed] [data-testid="comment_toggle_icon"], .icon-expand').forEach(b => b.click()); }},
-        { id: 'r-old', icon: '🔄', label: 'Old Reddit', desc: 'Switch to old.reddit.com',
-          script: () => { window.location.href = window.location.href.replace('www.reddit.com', 'old.reddit.com'); }},
-        { id: 'r-hideread', icon: '👁️', label: 'Dim Visited', desc: 'Dim already-visited links',
-          script: () => { document.querySelectorAll('a:visited').forEach(a => { a.closest('article, .thing, [data-testid="post-container"]')?.style.setProperty('opacity', '0.4'); }); }},
-        { id: 'r-media', icon: '🖼️', label: 'Show Media', desc: 'Expand all inline images/videos',
-          script: () => { document.querySelectorAll('[data-testid="outbound-link"], .expando-button').forEach(b => { if (!b.classList.contains('expanded')) b.click(); }); }},
-        { id: 'r-users', icon: '👤', label: 'Highlight OP', desc: 'Highlight all comments by the post author',
-          script: () => { const op = document.querySelector('[data-testid="post_author_link"]')?.textContent; if (!op) return; document.querySelectorAll('a[href*="/user/"]').forEach(a => { if (a.textContent.trim() === op) a.closest('.comment, [data-testid="comment"]')?.style.setProperty('border-left', '3px solid #ff4500'); }); }},
+          script: () => {
+            document.querySelectorAll('.comment .expand').forEach(b => { if (b.textContent.trim() === '[+]') b.click(); });
+            document.querySelectorAll('[collapsed] [data-testid="comment_toggle_icon"]').forEach(b => b.click());
+          }},
+        { id: 'r-media', icon: '🖼️', label: 'Expand Media', desc: 'Expand all inline images/videos',
+          script: () => {
+            document.querySelectorAll('.expando-button.collapsed').forEach(b => b.click());
+            document.querySelectorAll('[data-testid="outbound-link"]').forEach(b => { if (!b.classList.contains('expanded')) b.click(); });
+          }},
+        { id: 'r-op', icon: '👤', label: 'Highlight OP', desc: 'Highlight all comments by the post author',
+          script: () => {
+            // Old reddit: .tagline .submitter
+            const opOld = document.querySelector('.side .tagline .author, .linklisting .author')?.textContent?.trim();
+            const opNew = document.querySelector('[data-testid="post_author_link"]')?.textContent?.trim();
+            const op = opOld || opNew;
+            if (!op) { alert('Could not find OP'); return; }
+            let n = 0;
+            document.querySelectorAll('.comment .author, a[href*="/user/"]').forEach(a => {
+              if (a.textContent.trim() === op) {
+                const comment = a.closest('.comment, .entry, [data-testid="comment"]');
+                if (comment) { comment.style.borderLeft = '3px solid #ff4500'; comment.style.paddingLeft = '8px'; n++; }
+              }
+            });
+            alert(`Highlighted ${n} comments by ${op}`);
+          }},
+        { id: 'r-save-imgs', icon: '💾', label: 'Save Images', desc: 'Download all images from post/page',
+          script: () => {
+            const srcs = new Set();
+            document.querySelectorAll('a[href$=".jpg"], a[href$=".png"], a[href$=".gif"], a[href$=".webp"]').forEach(a => srcs.add(a.href));
+            document.querySelectorAll('img[src*="i.redd.it"], img[src*="preview.redd.it"], img[src*="i.imgur.com"]').forEach(i => {
+              let src = i.src.replace(/\?.*/, '');
+              if (src.includes('preview.redd.it')) src = src.replace('preview.redd.it', 'i.redd.it');
+              srcs.add(src);
+            });
+            document.querySelectorAll('.media-preview-content img, .expando img').forEach(i => { if (i.src && !i.src.includes('pixel') && i.naturalWidth > 50) srcs.add(i.src); });
+            if (!srcs.size) { alert('No images found'); return; }
+            const list = [...srcs];
+            list.forEach((src, i) => { setTimeout(() => { const a = document.createElement('a'); a.href = src; a.download = `reddit-img-${i+1}.${src.split('.').pop().split('?')[0] || 'jpg'}`; a.click(); }, i * 300); });
+            alert(`Downloading ${list.length} images...`);
+          }},
+        { id: 'r-save-vid', icon: '🎬', label: 'Save Video', desc: 'Download embedded video/gif',
+          script: () => {
+            const video = document.querySelector('video source, video[src]');
+            const src = video?.src || video?.getAttribute('src');
+            if (src) { const a = document.createElement('a'); a.href = src; a.download = `reddit-video-${Date.now()}.mp4`; a.click(); alert('Downloading video...'); return; }
+            const gif = document.querySelector('img[src*=".gif"], video[poster]');
+            if (gif?.src) { const a = document.createElement('a'); a.href = gif.src; a.download = `reddit-gif-${Date.now()}.gif`; a.click(); alert('Downloading GIF...'); return; }
+            alert('No video/gif found on this page');
+          }},
+        { id: 'r-links', icon: '🔗', label: 'Copy Links', desc: 'Copy all post/comment links',
+          script: () => {
+            const links = new Set();
+            document.querySelectorAll('.thing .title a.title, .entry .title a, a[data-click-id="body"]').forEach(a => { if (a.href && !a.href.includes('/comments/')) links.add(a.href); });
+            if (!links.size) {
+              document.querySelectorAll('.comment .md a, [data-testid="comment"] a').forEach(a => { if (a.href && !a.href.includes('reddit.com/user/')) links.add(a.href); });
+            }
+            navigator.clipboard.writeText([...links].join('\n')).then(() => alert(`Copied ${links.size} links`));
+          }},
+        { id: 'r-switch', icon: '🔄', label: 'Switch UI', desc: 'Toggle between old and new Reddit',
+          script: () => {
+            const h = window.location.hostname;
+            if (h.includes('old.reddit')) window.location.hostname = 'www.reddit.com';
+            else if (h.includes('new.reddit')) window.location.hostname = 'www.reddit.com';
+            else window.location.hostname = 'old.reddit.com';
+          }},
       ]
     };
 
