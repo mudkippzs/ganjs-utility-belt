@@ -46,7 +46,8 @@
       chrome.storage.local.set({ pomodoroPaused: true, pomodoroRemaining: remaining }, () => {
         updateOverlayStyle();
         updateText(remaining);
-        const percent = remaining ? 1 - (remaining / Pomodoro.getDuration(state.type)) : 0;
+        const duration = state.endTime - state.startTime;
+        const percent = remaining ? 1 - (remaining / duration) : 0;
         updateArc(percent);
       });
     } else {
@@ -117,7 +118,7 @@
     if (!state || !container) return;
 
     clearInterval(timer);
-    const duration = Pomodoro.getDuration(state.type);
+    const duration = state.endTime - state.startTime;
     const endTime = state.endTime;
     warnedOneMinute = false;
 
@@ -181,12 +182,8 @@
 
         createOverlay();
         chrome.runtime.sendMessage({ action: 'claimToastLeadership' }, (res) => {
-          if (chrome.runtime.lastError) {
-            console.warn('[PomodoroOverlay] Leadership check error:', chrome.runtime.lastError.message);
-            return;
-          }
+          if (chrome.runtime.lastError) return;
           isToastLeader = !!res?.isLeader;
-          console.log('[PomodoroOverlay] Toast leader:', isToastLeader);
         });
 
         updateOverlayStyle();
@@ -197,7 +194,8 @@
           startTimerLoop();
         } else if (paused) {
           updateText(remaining);
-          const percent = remaining ? 1 - (remaining / Pomodoro.getDuration(state.type)) : 0;
+          const duration = state.endTime - state.startTime;
+          const percent = remaining ? 1 - (remaining / duration) : 0;
           updateArc(percent);
         }
       }

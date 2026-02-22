@@ -22,8 +22,7 @@
   --ganj-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ===== UTILITY CLASSES ===== */
-.hidden { display: none !important; }
+/* .hidden rule is at end of file for specificity */
 
 /* ===== SHARED BUTTON STYLES ===== */
 .btn-primary, .ganj-btn-primary,
@@ -647,3 +646,11 @@
 
 /* ===== FLOATING TIMER ===== */
 #pomodoro-floating-timer { font-family: var(--ganj-font-sans) !important; }
+
+/* ===== HIDDEN STATE =====
+   MUST be last rule in file so it overrides all display:!important above.
+   Doubled class selector (0,2,0 specificity) beats single class (0,1,0). */
+.hidden.hidden,
+.hidden[class] {
+  display: none !important;
+}
