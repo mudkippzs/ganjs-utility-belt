@@ -1,8 +1,6 @@
-// JS Editor - Execute JavaScript code with saveable functions
 const JSEditor = (() => {
   let editorContainer = null;
   let isVisible = false;
-  let savedFunctions = new Map();
   let executionHistory = [];
 
   function init() {
@@ -21,153 +19,109 @@ const JSEditor = (() => {
         <div class="editor-header">
           <h3>💻 JavaScript Editor</h3>
           <div class="editor-controls">
-            <button id="jsExecute" class="btn-primary">Execute (Ctrl+Enter)</button>
+            <button id="jsFormat" class="btn-outline">Format</button>
+            <button id="jsExecute" class="btn-primary">Run (Ctrl+Enter)</button>
             <button id="jsClear" class="btn-secondary">Clear</button>
-            <button id="jsSave" class="btn-outline">Save Function</button>
+            <button id="jsSave" class="btn-outline">Save</button>
             <button class="js-editor-close">✕</button>
           </div>
         </div>
-        
         <div class="editor-content">
           <div class="editor-tabs">
-            <button class="tab-btn active" data-tab="editor">Code Editor</button>
-            <button class="tab-btn" data-tab="saved">Saved Functions</button>
-            <button class="tab-btn" data-tab="history">History</button>
+            <button class="tab-btn active" data-tab="editor">Editor</button>
             <button class="tab-btn" data-tab="console">Console</button>
+            <button class="tab-btn" data-tab="saved">Saved</button>
+            <button class="tab-btn" data-tab="history">History</button>
           </div>
-          
           <div class="tab-content active" data-tab="editor">
-            <div class="js-textarea-container">
-              <textarea id="jsTextarea" placeholder="// Enter JavaScript code here
-// Example: Find all links on page
-const links = document.querySelectorAll('a');
-console.log('Found', links.length, 'links');
-
-// Example: Highlight all text
-document.body.style.backgroundColor = 'yellow';
-
-// Example: Get page info
-console.log({
-  title: document.title,
-  url: location.href,
-  images: document.images.length
-});"></textarea>
-              <div class="js-line-numbers"></div>
+            <div class="gub-code-editor" data-lang="js">
+              <div class="gub-code-gutter"></div>
+              <div class="gub-code-body">
+                <pre class="gub-code-highlight" aria-hidden="true"><code></code></pre>
+                <textarea class="gub-code-input" id="jsTextarea" spellcheck="false"
+                  placeholder="// JavaScript code here&#10;console.log('hello');"></textarea>
+              </div>
             </div>
           </div>
-          
-          <div class="tab-content" data-tab="saved">
-            <div class="saved-controls">
-              <input type="text" id="functionName" placeholder="Function name">
-              <button id="saveFunction">Save Current Code</button>
-            </div>
-            <div class="saved-functions" id="savedFunctions">
-              <!-- Saved functions will appear here -->
-            </div>
-          </div>
-          
-          <div class="tab-content" data-tab="history">
-            <div class="history-controls">
-              <button id="clearHistory">Clear History</button>
-            </div>
-            <div class="execution-history" id="executionHistory">
-              <!-- Execution history will appear here -->
-            </div>
-          </div>
-          
           <div class="tab-content" data-tab="console">
             <div class="console-output" id="consoleOutput">
-              <div class="console-welcome">JavaScript Console Output</div>
+              <div class="console-welcome">Console output appears here</div>
             </div>
             <div class="console-input-container">
-              <input type="text" id="consoleInput" placeholder="Enter JavaScript expression...">
-              <button id="consoleExecute">Run</button>
+              <input type="text" id="consoleInput" placeholder="Evaluate expression..." spellcheck="false">
+              <button id="consoleExecute" class="btn-primary">Run</button>
             </div>
           </div>
+          <div class="tab-content" data-tab="saved">
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+              <input type="text" id="functionName" placeholder="Function name" style="flex:1;">
+              <button id="saveFunction" class="btn-primary">Save Current</button>
+            </div>
+            <div id="savedFunctions"></div>
+          </div>
+          <div class="tab-content" data-tab="history">
+            <div style="margin-bottom:12px;"><button id="clearHistory" class="btn-secondary">Clear History</button></div>
+            <div id="executionHistory"></div>
+          </div>
         </div>
-        
         <div class="editor-status">
           <span id="jsStatus">Ready</span>
-          <span id="jsStats">No executions</span>
+          <span id="jsStats">0 runs</span>
         </div>
       </div>
     `;
 
     document.body.appendChild(editorContainer);
     attachEventListeners();
-    interceptConsole();
   }
 
   function attachEventListeners() {
     const textarea = editorContainer.querySelector('#jsTextarea');
-    const executeBtn = editorContainer.querySelector('#jsExecute');
-    const clearBtn = editorContainer.querySelector('#jsClear');
-    const saveBtn = editorContainer.querySelector('#jsSave');
-    const closeBtn = editorContainer.querySelector('.js-editor-close');
 
-    closeBtn.addEventListener('click', hide);
-    executeBtn.addEventListener('click', executeCode);
-    clearBtn.addEventListener('click', clearCode);
-    saveBtn.addEventListener('click', saveFunction);
+    editorContainer.querySelector('.js-editor-close').addEventListener('click', hide);
+    editorContainer.querySelector('#jsExecute').addEventListener('click', executeCode);
+    editorContainer.querySelector('#jsClear').addEventListener('click', clearCode);
+    editorContainer.querySelector('#jsSave').addEventListener('click', () => switchTab('saved'));
+    editorContainer.querySelector('#jsFormat').addEventListener('click', formatJs);
 
+    textarea.addEventListener('input', () => updateHighlight(textarea));
+    textarea.addEventListener('scroll', () => syncScroll(textarea));
     textarea.addEventListener('keydown', (e) => {
-      if (e.ctrlKey && e.key === 'Enter') {
-        e.preventDefault();
-        executeCode();
-      }
-      if (e.key === 'Tab') {
-        e.preventDefault();
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        textarea.value = textarea.value.substring(0, start) + '  ' + textarea.value.substring(end);
-        textarea.selectionStart = textarea.selectionEnd = start + 2;
-        updateLineNumbers();
-      }
+      if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); executeCode(); return; }
+      handleEditorKeys(e, textarea);
     });
 
-    textarea.addEventListener('input', updateLineNumbers);
-    textarea.addEventListener('scroll', syncLineNumbers);
-
-    // Tab switching
     editorContainer.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const tabName = e.target.dataset.tab;
-        switchTab(tabName);
-      });
+      btn.addEventListener('click', (e) => switchTab(e.target.dataset.tab));
     });
 
-    // Console input
     const consoleInput = editorContainer.querySelector('#consoleInput');
-    const consoleExecute = editorContainer.querySelector('#consoleExecute');
-    
-    consoleExecute.addEventListener('click', executeConsoleInput);
-    consoleInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        executeConsoleInput();
-      }
-    });
+    editorContainer.querySelector('#consoleExecute').addEventListener('click', executeConsoleInput);
+    consoleInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); executeConsoleInput(); } });
 
-    // History controls
+    editorContainer.querySelector('#saveFunction').addEventListener('click', saveFunction);
     editorContainer.querySelector('#clearHistory').addEventListener('click', clearHistory);
 
-    updateLineNumbers();
+    updateHighlight(textarea);
   }
 
   function switchTab(tabName) {
-    editorContainer.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.tab === tabName);
-    });
-
-    editorContainer.querySelectorAll('.tab-content').forEach(content => {
-      content.classList.toggle('active', content.dataset.tab === tabName);
-    });
+    editorContainer.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tabName));
+    editorContainer.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.dataset.tab === tabName));
   }
+
+  function formatJs() {
+    const ta = editorContainer.querySelector('#jsTextarea');
+    ta.value = prettifyJs(ta.value);
+    updateHighlight(ta);
+    updateStatus('Formatted', 'success');
+  }
+
+  // --- Execution ---
 
   function runInPageContext(code) {
     return new Promise((resolve) => {
       const resultId = 'gub-js-result-' + Date.now();
-
       const handler = (event) => {
         if (event.data?.type === resultId) {
           window.removeEventListener('message', handler);
@@ -178,37 +132,23 @@ console.log({
 
       const wrappedCode = `
         (function() {
-          var __result = { type: '${resultId}' };
-          var __origLog = console.log, __origError = console.error, __origWarn = console.warn;
-          var __logs = [];
-          console.log = function() { __logs.push({ t: 'log', v: Array.from(arguments).map(String).join(' ') }); __origLog.apply(console, arguments); };
-          console.error = function() { __logs.push({ t: 'error', v: Array.from(arguments).map(String).join(' ') }); __origError.apply(console, arguments); };
-          console.warn = function() { __logs.push({ t: 'warn', v: Array.from(arguments).map(String).join(' ') }); __origWarn.apply(console, arguments); };
-          try {
-            var __val = (0, eval)(${JSON.stringify(code)});
-            __result.value = __val === undefined ? undefined : String(__val);
-            __result.logs = __logs;
-          } catch(e) {
-            __result.error = e.message;
-            __result.logs = __logs;
-          } finally {
-            console.log = __origLog;
-            console.error = __origError;
-            console.warn = __origWarn;
-          }
-          window.postMessage(__result, '*');
+          var __r = { type: '${resultId}' }, __logs = [];
+          var __oL = console.log, __oE = console.error, __oW = console.warn;
+          console.log = function() { __logs.push({ t:'log', v:Array.from(arguments).map(String).join(' ') }); __oL.apply(console,arguments); };
+          console.error = function() { __logs.push({ t:'error', v:Array.from(arguments).map(String).join(' ') }); __oE.apply(console,arguments); };
+          console.warn = function() { __logs.push({ t:'warn', v:Array.from(arguments).map(String).join(' ') }); __oW.apply(console,arguments); };
+          try { var __v = (0,eval)(${JSON.stringify(code)}); __r.value = __v === undefined ? undefined : String(__v); }
+          catch(e) { __r.error = e.message; }
+          __r.logs = __logs;
+          console.log = __oL; console.error = __oE; console.warn = __oW;
+          window.postMessage(__r, '*');
         })();
       `;
-
-      const script = document.createElement('script');
-      script.textContent = wrappedCode;
-      document.documentElement.appendChild(script);
-      script.remove();
-
-      setTimeout(() => {
-        window.removeEventListener('message', handler);
-        resolve({ error: 'Execution timed out' });
-      }, 5000);
+      const s = document.createElement('script');
+      s.textContent = wrappedCode;
+      document.documentElement.appendChild(s);
+      s.remove();
+      setTimeout(() => { window.removeEventListener('message', handler); resolve({ error: 'Timed out' }); }, 5000);
     });
   }
 
@@ -216,30 +156,24 @@ console.log({
     const code = editorContainer.querySelector('#jsTextarea').value.trim();
     if (!code) return;
 
-    updateStatus('Executing...', 'info');
+    updateStatus('Running...', 'info');
+    switchTab('console');
 
-    const consoleOutput = editorContainer.querySelector('#consoleOutput');
-    consoleOutput.innerHTML = '<div class="console-welcome">JavaScript Console Output</div>';
+    const out = editorContainer.querySelector('#consoleOutput');
+    out.innerHTML = '';
 
     const result = await runInPageContext(code);
-
-    if (result.logs) {
-      result.logs.forEach(log => {
-        addConsoleOutput(log.t + ':', log.v, log.t);
-      });
-    }
+    if (result.logs) result.logs.forEach(l => addConsoleOutput(l.v, l.t));
 
     if (result.error) {
-      addToHistory(code, null, { message: result.error });
-      updateStatus('Execution error: ' + result.error, 'error');
-      addConsoleOutput('Error:', result.error, 'error');
+      addToHistory(code, null, result.error);
+      updateStatus('Error: ' + result.error, 'error');
+      addConsoleOutput(result.error, 'error');
     } else {
       addToHistory(code, result.value, null);
-      updateStatus('Executed successfully', 'success');
+      updateStatus('Success', 'success');
       updateStats();
-      if (result.value !== undefined) {
-        addConsoleOutput('Return value:', result.value, 'result');
-      }
+      if (result.value !== undefined) addConsoleOutput('→ ' + result.value, 'result');
     }
   }
 
@@ -248,272 +182,158 @@ console.log({
     const code = input.value.trim();
     if (!code) return;
 
+    addConsoleOutput('> ' + code, 'input');
     const result = await runInPageContext(code);
-
-    if (result.logs) {
-      result.logs.forEach(log => {
-        addConsoleOutput(log.t + ':', log.v, log.t);
-      });
-    }
-
-    if (result.error) {
-      addConsoleOutput('> ' + code, result.error, 'error');
-    } else {
-      addConsoleOutput('> ' + code, result.value, 'input');
-    }
+    if (result.logs) result.logs.forEach(l => addConsoleOutput(l.v, l.t));
+    if (result.error) addConsoleOutput(result.error, 'error');
+    else if (result.value !== undefined) addConsoleOutput('→ ' + result.value, 'result');
     input.value = '';
   }
 
-  function addConsoleOutput(label, value, type = 'log') {
-    const consoleOutput = editorContainer.querySelector('#consoleOutput');
-    const outputDiv = document.createElement('div');
-    outputDiv.className = `console-line console-${type}`;
-    
-    const timestamp = new Date().toLocaleTimeString();
-    let valueStr = '';
-    
-    try {
-      if (typeof value === 'object' && value !== null) {
-        valueStr = JSON.stringify(value, null, 2);
-      } else {
-        valueStr = String(value);
-      }
-    } catch (e) {
-      valueStr = '[Object object]';
-    }
-    
-    outputDiv.innerHTML = `
-      <span class="console-timestamp">${timestamp}</span>
-      <span class="console-label">${escapeHtml(label)}</span>
-      <span class="console-value">${escapeHtml(valueStr)}</span>
-    `;
-    
-    consoleOutput.appendChild(outputDiv);
-    consoleOutput.scrollTop = consoleOutput.scrollHeight;
+  function addConsoleOutput(text, type = 'log') {
+    const out = editorContainer.querySelector('#consoleOutput');
+    const line = document.createElement('div');
+    line.className = `console-line console-${type}`;
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    line.innerHTML = `<span class="console-timestamp">${time}</span><span class="console-value">${escapeHtml(String(text))}</span>`;
+    out.appendChild(line);
+    out.scrollTop = out.scrollHeight;
   }
 
-  function interceptConsole() {
-    const originalLog = console.log;
-    const originalError = console.error;
-    const originalWarn = console.warn;
-
-    console.log = function(...args) {
-      originalLog.apply(console, args);
-      if (editorContainer && !editorContainer.classList.contains('hidden')) {
-        addConsoleOutput('LOG:', args.join(' '), 'log');
-      }
-    };
-
-    console.error = function(...args) {
-      originalError.apply(console, args);
-      if (editorContainer && !editorContainer.classList.contains('hidden')) {
-        addConsoleOutput('ERROR:', args.join(' '), 'error');
-      }
-    };
-
-    console.warn = function(...args) {
-      originalWarn.apply(console, args);
-      if (editorContainer && !editorContainer.classList.contains('hidden')) {
-        addConsoleOutput('WARN:', args.join(' '), 'warn');
-      }
-    };
-  }
-
-  function clearCode() {
-    editorContainer.querySelector('#jsTextarea').value = '';
-    updateLineNumbers();
-    updateStatus('Code cleared', 'info');
-  }
+  // --- Save/Load ---
 
   function saveFunction() {
     const code = editorContainer.querySelector('#jsTextarea').value.trim();
     const name = editorContainer.querySelector('#functionName').value.trim();
-
-    if (!code) {
-      updateStatus('No code to save', 'error');
-      return;
-    }
-
-    if (!name) {
-      updateStatus('Please enter a function name', 'error');
-      return;
-    }
-
-    chrome.storage.local.get(['jsFunctions'], (result) => {
-      const functions = result.jsFunctions || {};
-      functions[name] = {
-        code: code,
-        created: new Date().toISOString()
-      };
-
-      chrome.storage.local.set({ jsFunctions: functions }, () => {
-        updateStatus('Function saved: ' + name, 'success');
+    if (!code) return updateStatus('No code to save', 'error');
+    if (!name) return updateStatus('Enter a name', 'error');
+    chrome.storage.local.get(['jsFunctions'], (res) => {
+      const fns = res.jsFunctions || {};
+      fns[name] = { code, created: new Date().toISOString() };
+      chrome.storage.local.set({ jsFunctions: fns }, () => {
         editorContainer.querySelector('#functionName').value = '';
         loadSavedFunctions();
+        updateStatus('Saved: ' + name, 'success');
       });
     });
   }
 
   function loadSavedFunctions() {
-    chrome.storage.local.get(['jsFunctions'], (result) => {
-      const functions = result.jsFunctions || {};
-      const functionsList = editorContainer.querySelector('#savedFunctions');
-
-      if (Object.keys(functions).length === 0) {
-        functionsList.innerHTML = '<div class="no-functions">No saved functions</div>';
-        return;
-      }
-
-      functionsList.innerHTML = Object.entries(functions).map(([name, data]) => `
-        <div class="function-item">
-          <div class="function-header">
-            <span class="function-name">${escapeHtml(name)}</span>
-            <div class="function-actions">
-              <button class="btn-small" onclick="window.JSEditor.loadFunction('${escapeHtml(name)}')">Load</button>
-              <button class="btn-small" onclick="window.JSEditor.executeFunction('${escapeHtml(name)}')">Execute</button>
-              <button class="btn-small btn-danger" onclick="window.JSEditor.deleteFunction('${escapeHtml(name)}')">Delete</button>
+    chrome.storage.local.get(['jsFunctions'], (res) => {
+      const fns = res.jsFunctions || {};
+      const list = editorContainer.querySelector('#savedFunctions');
+      const entries = Object.entries(fns);
+      if (!entries.length) { list.innerHTML = '<div class="no-data">No saved functions</div>'; return; }
+      list.innerHTML = entries.map(([name, data]) => `
+        <div style="background:var(--ganj-bg-alt,#f8fafc);border:1px solid var(--ganj-border,#e2e8f0);border-radius:8px;padding:10px;margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <strong style="color:var(--ganj-text,#1e293b);">${escapeHtml(name)}</strong>
+            <div style="display:flex;gap:4px;">
+              <button class="btn-small btn-primary" data-fn-load="${escapeHtml(name)}">Load</button>
+              <button class="btn-small btn-outline" data-fn-run="${escapeHtml(name)}">Run</button>
+              <button class="btn-small btn-danger" data-fn-del="${escapeHtml(name)}">Del</button>
             </div>
           </div>
-          <div class="function-preview">${escapeHtml(data.code.substring(0, 100))}...</div>
+          <div style="font-size:12px;color:var(--ganj-text-muted,#64748b);font-family:var(--ganj-font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(data.code.substring(0, 80))}</div>
         </div>
       `).join('');
+      list.querySelectorAll('[data-fn-load]').forEach(b => b.onclick = () => loadFunction(b.dataset.fnLoad));
+      list.querySelectorAll('[data-fn-run]').forEach(b => b.onclick = () => executeFunction(b.dataset.fnRun));
+      list.querySelectorAll('[data-fn-del]').forEach(b => b.onclick = () => deleteFunction(b.dataset.fnDel));
     });
   }
 
   function loadFunction(name) {
-    chrome.storage.local.get(['jsFunctions'], (result) => {
-      const functions = result.jsFunctions || {};
-      if (functions[name]) {
-        editorContainer.querySelector('#jsTextarea').value = functions[name].code;
+    chrome.storage.local.get(['jsFunctions'], (res) => {
+      if (res.jsFunctions?.[name]) {
+        const ta = editorContainer.querySelector('#jsTextarea');
+        ta.value = res.jsFunctions[name].code;
+        updateHighlight(ta);
         switchTab('editor');
-        updateStatus('Function loaded: ' + name, 'success');
-        updateLineNumbers();
       }
     });
   }
 
   function executeFunction(name) {
-    chrome.storage.local.get(['jsFunctions'], async (result) => {
-      const functions = result.jsFunctions || {};
-      if (functions[name]) {
-        editorContainer.querySelector('#jsTextarea').value = functions[name].code;
+    chrome.storage.local.get(['jsFunctions'], async (res) => {
+      if (res.jsFunctions?.[name]) {
+        editorContainer.querySelector('#jsTextarea').value = res.jsFunctions[name].code;
+        updateHighlight(editorContainer.querySelector('#jsTextarea'));
         await executeCode();
       }
     });
   }
 
   function deleteFunction(name) {
-    if (!confirm('Delete function "' + name + '"?')) return;
-
-    chrome.storage.local.get(['jsFunctions'], (result) => {
-      const functions = result.jsFunctions || {};
-      delete functions[name];
-
-      chrome.storage.local.set({ jsFunctions: functions }, () => {
-        updateStatus('Function deleted: ' + name, 'info');
-        loadSavedFunctions();
-      });
+    chrome.storage.local.get(['jsFunctions'], (res) => {
+      const fns = res.jsFunctions || {};
+      delete fns[name];
+      chrome.storage.local.set({ jsFunctions: fns }, loadSavedFunctions);
     });
   }
 
+  // --- History ---
+
   function addToHistory(code, result, error) {
-    const historyEntry = {
-      code: code,
-      result: result,
-      error: error,
-      timestamp: new Date().toISOString()
-    };
-
-    executionHistory.unshift(historyEntry);
-    if (executionHistory.length > 50) {
-      executionHistory = executionHistory.slice(0, 50);
-    }
-
-    updateHistoryDisplay();
+    executionHistory.unshift({ code, result, error, ts: new Date().toISOString() });
+    if (executionHistory.length > 30) executionHistory.length = 30;
+    renderHistory();
   }
 
-  function updateHistoryDisplay() {
-    const historyContainer = editorContainer.querySelector('#executionHistory');
-    
-    if (executionHistory.length === 0) {
-      historyContainer.innerHTML = '<div class="no-history">No execution history</div>';
-      return;
-    }
-
-    historyContainer.innerHTML = executionHistory.map((entry, index) => `
-      <div class="history-item ${entry.error ? 'history-error' : 'history-success'}">
-        <div class="history-header">
-          <span class="history-timestamp">${new Date(entry.timestamp).toLocaleString()}</span>
-          <button class="btn-small" onclick="window.JSEditor.loadHistoryItem(${index})">Load</button>
+  function renderHistory() {
+    const el = editorContainer.querySelector('#executionHistory');
+    if (!executionHistory.length) { el.innerHTML = '<div class="no-data">No history</div>'; return; }
+    el.innerHTML = executionHistory.map((h, i) => `
+      <div style="background:var(--ganj-bg-alt,#f8fafc);border:1px solid ${h.error ? 'var(--ganj-error,#dc2626)' : 'var(--ganj-border,#e2e8f0)'};border-radius:8px;padding:10px;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ganj-text-muted,#64748b);margin-bottom:4px;">
+          <span>${new Date(h.ts).toLocaleString()}</span>
+          <button class="btn-small btn-outline" data-hist="${i}">Load</button>
         </div>
-        <div class="history-code">${escapeHtml(entry.code.substring(0, 100))}${entry.code.length > 100 ? '...' : ''}</div>
-        ${entry.error ? 
-          `<div class="history-error-msg">Error: ${escapeHtml(entry.error.message)}</div>` :
-          entry.result !== undefined ? `<div class="history-result">Result: ${escapeHtml(String(entry.result).substring(0, 50))}</div>` : ''
-        }
+        <div style="font-size:12px;font-family:var(--ganj-font-mono);color:var(--ganj-text,#1e293b);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(h.code.substring(0, 100))}</div>
+        ${h.error ? `<div style="font-size:11px;color:var(--ganj-error,#dc2626);margin-top:4px;">Error: ${escapeHtml(h.error)}</div>` : ''}
+        ${h.result !== null && h.result !== undefined ? `<div style="font-size:11px;color:var(--ganj-success,#059669);margin-top:4px;">→ ${escapeHtml(String(h.result).substring(0, 60))}</div>` : ''}
       </div>
     `).join('');
+    el.querySelectorAll('[data-hist]').forEach(b => b.onclick = () => loadHistoryItem(parseInt(b.dataset.hist)));
   }
 
-  function loadHistoryItem(index) {
-    const entry = executionHistory[index];
-    if (entry) {
-      editorContainer.querySelector('#jsTextarea').value = entry.code;
+  function loadHistoryItem(i) {
+    const h = executionHistory[i];
+    if (h) {
+      const ta = editorContainer.querySelector('#jsTextarea');
+      ta.value = h.code;
+      updateHighlight(ta);
       switchTab('editor');
-      updateLineNumbers();
-      updateStatus('History item loaded', 'success');
     }
   }
 
   function clearHistory() {
-    if (!confirm('Clear all execution history?')) return;
-    
     executionHistory = [];
-    updateHistoryDisplay();
+    renderHistory();
     updateStatus('History cleared', 'info');
-    updateStats();
   }
 
-  function updateLineNumbers() {
-    const textarea = editorContainer.querySelector('#jsTextarea');
-    const lineNumbers = editorContainer.querySelector('.js-line-numbers');
-    const lines = textarea.value.split('\n').length;
-    
-    lineNumbers.innerHTML = Array.from({length: lines}, (_, i) => i + 1).join('\n');
+  function clearCode() {
+    const ta = editorContainer.querySelector('#jsTextarea');
+    ta.value = '';
+    updateHighlight(ta);
+    updateStatus('Cleared', 'info');
   }
 
-  function syncLineNumbers() {
-    const textarea = editorContainer.querySelector('#jsTextarea');
-    const lineNumbers = editorContainer.querySelector('.js-line-numbers');
-    lineNumbers.scrollTop = textarea.scrollTop;
-  }
-
-  function updateStatus(message, type = 'info') {
-    const status = editorContainer.querySelector('#jsStatus');
-    status.textContent = message;
-    status.className = `status-${type}`;
+  function updateStatus(msg, type = 'info') {
+    const el = editorContainer.querySelector('#jsStatus');
+    el.textContent = msg;
+    el.className = `status-${type}`;
   }
 
   function updateStats() {
-    const stats = editorContainer.querySelector('#jsStats');
-    stats.textContent = `${executionHistory.length} executions`;
-  }
-
-  function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    editorContainer.querySelector('#jsStats').textContent = `${executionHistory.length} run${executionHistory.length !== 1 ? 's' : ''}`;
   }
 
   function attachKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'J') {
-        e.preventDefault();
-        toggle();
-      }
-      if (e.key === 'Escape' && isVisible) {
-        hide();
-      }
+      if (e.ctrlKey && e.shiftKey && e.key === 'J') { e.preventDefault(); toggle(); }
+      if (e.key === 'Escape' && isVisible) hide();
     });
   }
 
@@ -521,41 +341,19 @@ console.log({
     if (!editorContainer) createEditor();
     editorContainer.classList.remove('hidden');
     isVisible = true;
-    
-    setTimeout(() => {
-      editorContainer.querySelector('#jsTextarea').focus();
-    }, 100);
+    setTimeout(() => { const ta = editorContainer.querySelector('#jsTextarea'); updateHighlight(ta); ta.focus(); }, 50);
   }
 
   function hide() {
-    if (editorContainer) {
-      editorContainer.classList.add('hidden');
-    }
+    if (editorContainer) editorContainer.classList.add('hidden');
     isVisible = false;
   }
 
-  function toggle() {
-    isVisible ? hide() : show();
-  }
+  function toggle() { isVisible ? hide() : show(); }
 
-  return { 
-    init, 
-    show, 
-    hide, 
-    toggle, 
-    loadFunction, 
-    executeFunction, 
-    deleteFunction, 
-    loadHistoryItem 
-  };
+  return { init, show, hide, toggle, loadFunction, executeFunction, deleteFunction, loadHistoryItem };
 })();
 
-// Make it globally accessible
 window.JSEditor = JSEditor;
-
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', JSEditor.init);
-} else {
-  JSEditor.init();
-}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', JSEditor.init);
+else JSEditor.init();
