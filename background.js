@@ -1,27 +1,74 @@
-function getDisplayNameFromDomain(hostname) {
-  const multiPartTLDs = ['co.uk', 'org.uk', 'gov.uk', 'ac.uk', 'com.au', 'co.in'];
-  const parts = hostname.split('.');
-  if (parts.length < 2) return hostname;
+const MULTI_PART_TLDS = [
+  'co.uk', 'org.uk', 'gov.uk', 'ac.uk', 'me.uk', 'net.uk',
+  'com.au', 'net.au', 'org.au', 'edu.au',
+  'co.in', 'net.in', 'org.in',
+  'co.nz', 'net.nz', 'org.nz',
+  'co.za', 'co.jp', 'co.kr',
+  'com.br', 'com.mx', 'com.ar', 'com.cn', 'com.tw', 'com.hk',
+  'com.sg', 'com.my', 'com.ph', 'com.pk', 'com.ng', 'com.eg',
+  'com.tr', 'com.ua', 'com.pl'
+];
 
-  const tld = parts.slice(-2).join('.');
-  let domain, sub;
+const KNOWN_BRANDS = {
+  'google': 'Google', 'github': 'GitHub', 'youtube': 'YouTube',
+  'stackoverflow': 'StackOverflow', 'gitlab': 'GitLab', 'linkedin': 'LinkedIn',
+  'reddit': 'Reddit', 'twitter': 'Twitter', 'facebook': 'Facebook',
+  'instagram': 'Instagram', 'whatsapp': 'WhatsApp', 'wikipedia': 'Wikipedia',
+  'microsoft': 'Microsoft', 'openai': 'OpenAI', 'amazon': 'Amazon',
+  'netflix': 'Netflix', 'spotify': 'Spotify', 'twitch': 'Twitch',
+  'discord': 'Discord', 'slack': 'Slack', 'notion': 'Notion',
+  'figma': 'Figma', 'vercel': 'Vercel', 'netlify': 'Netlify',
+  'cloudflare': 'Cloudflare', 'digitalocean': 'DigitalOcean',
+  'bitbucket': 'Bitbucket', 'npmjs': 'npm', 'pypi': 'PyPI',
+  'localhost': 'Localhost'
+};
 
-  if (multiPartTLDs.includes(tld)) {
-    domain = parts.slice(-3, -2)[0];
-    sub = parts.slice(0, -3).join('.');
-  } else {
-    domain = parts.slice(-2, -1)[0];
-    sub = parts.slice(0, -2).join('.');
+function parseDomain(hostname) {
+  if (!hostname) return { base: '', domain: '', sub: '' };
+
+  if (/^(\d{1,3}\.){3}\d{1,3}$/.test(hostname) || hostname === 'localhost') {
+    return { base: hostname, domain: hostname, sub: '' };
   }
 
-  const capitalizedDomain = domain.charAt(0).toUpperCase() + domain.slice(1);
-  const capitalizedSub = sub
-    .split('.')
-    .filter(s => s && s !== 'www')
-    .map(s => s.charAt(0).toUpperCase() + s.slice(1))
-    .join(' - ');
+  const parts = hostname.split('.');
+  if (parts.length < 2) return { base: hostname, domain: hostname, sub: '' };
 
-  return capitalizedSub ? `${capitalizedDomain} - ${capitalizedSub}` : capitalizedDomain;
+  const tld2 = parts.slice(-2).join('.');
+  const isMultiTLD = MULTI_PART_TLDS.includes(tld2);
+
+  const domainIndex = isMultiTLD ? -3 : -2;
+  const domain = parts.slice(domainIndex, domainIndex + 1)[0] || hostname;
+  const sub = parts.slice(0, domainIndex).filter(s => s && s !== 'www').join('.');
+  const base = parts.slice(domainIndex).join('.');
+
+  return { base, domain, sub };
+}
+
+function capitalize(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function getDisplayNameFromDomain(hostname) {
+  const { domain, sub } = parseDomain(hostname);
+  const brandName = KNOWN_BRANDS[domain.toLowerCase()] || capitalize(domain);
+
+  if (!sub) return brandName;
+
+  const subLabel = sub.split('.').map(capitalize).join(' ');
+  return `${brandName} ${subLabel}`;
+}
+
+function getGroupKey(hostname) {
+  return parseDomain(hostname).base;
+}
+
+function deterministicColor(str) {
+  const colors = ['grey', 'blue', 'red', 'green', 'yellow', 'pink', 'purple', 'cyan'];
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+  }
+  return colors[Math.abs(hash) % colors.length];
 }
 
 function safeHostname(url) {
@@ -197,19 +244,29 @@ const messageHandlers = {
       for (const tab of tabs) {
         const hostname = safeHostname(tab.url);
         if (!hostname) continue;
-        if (!groups[hostname]) groups[hostname] = [];
-        groups[hostname].push(tab);
+        const key = getGroupKey(hostname);
+        if (!groups[key]) groups[key] = { tabs: [], hostname };
+        groups[key].tabs.push(tab);
       }
 
-      const colors = ['grey', 'blue', 'red', 'green', 'yellow', 'pink', 'purple', 'cyan'];
-      for (const domain in groups) {
-        const tabIds = groups[domain].map(t => t.id);
+      for (const key in groups) {
+        const { tabs: groupTabs, hostname } = groups[key];
+        const tabIds = groupTabs.map(t => t.id);
+
+        const subdomains = new Set(
+          groupTabs.map(t => parseDomain(safeHostname(t.url)).sub).filter(Boolean)
+        );
+        let label = getDisplayNameFromDomain(hostname);
+        if (subdomains.size > 1) {
+          label = getDisplayNameFromDomain(hostname.replace(/^[^.]+\./, ''));
+        }
+
         try {
           const groupId = await chrome.tabs.group({ tabIds });
           await chrome.tabGroups.update(groupId, {
-            title: `${getDisplayNameFromDomain(domain)} (${tabIds.length})`,
+            title: `${label} · ${tabIds.length}`,
             collapsed: true,
-            color: colors[Math.floor(Math.random() * colors.length)]
+            color: deterministicColor(key)
           });
         } catch { /* tab may have been closed */ }
       }
@@ -376,41 +433,75 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 // --- Tab events: auto-grouping (gated by setting) ---
 
-chrome.tabs.onCreated.addListener((tab) => {
+function autoGroupTab(tabId, url) {
   chrome.storage.sync.get(['autoGroupTabs'], (res) => {
     if (!res.autoGroupTabs) return;
+    if (!isWebUrl(url)) return;
 
-    if (!isWebUrl(tab.url)) return;
-    const newHostname = safeHostname(tab.url);
-    if (!newHostname) return;
+    const hostname = safeHostname(url);
+    if (!hostname) return;
+    const key = getGroupKey(hostname);
 
     chrome.tabGroups.query({}, (groups) => {
       chrome.tabs.query({}, (allTabs) => {
         for (const group of groups) {
-          const groupTabs = allTabs.filter(t => t.groupId === group.id);
-          const exampleTab = groupTabs.find(t => isWebUrl(t.url));
-          if (!exampleTab) continue;
+          const member = allTabs.find(t => t.groupId === group.id && isWebUrl(t.url));
+          if (!member) continue;
 
-          if (safeHostname(exampleTab.url) === newHostname) {
-            chrome.tabs.group({ tabIds: [tab.id], groupId: group.id }).catch(() => {});
+          if (getGroupKey(safeHostname(member.url)) === key) {
+            chrome.tabs.group({ tabIds: [tabId], groupId: group.id }).then(() => {
+              updateGroupLabel(group.id);
+            }).catch(() => {});
             return;
           }
         }
 
-        chrome.tabs.group({ tabIds: [tab.id] }, async (groupId) => {
+        chrome.tabs.group({ tabIds: [tabId] }, async (groupId) => {
           if (chrome.runtime.lastError) return;
-          const colors = ['grey', 'blue', 'red', 'green', 'yellow', 'pink', 'purple', 'cyan'];
           try {
             await chrome.tabGroups.update(groupId, {
-              title: `${getDisplayNameFromDomain(newHostname)} (1)`,
-              collapsed: true,
-              color: colors[Math.floor(Math.random() * colors.length)]
+              title: `${getDisplayNameFromDomain(hostname)} · 1`,
+              collapsed: false,
+              color: deterministicColor(key)
             });
           } catch { /* group may have been removed */ }
         });
       });
     });
   });
+}
+
+function updateGroupLabel(groupId) {
+  chrome.tabs.query({ groupId }, (tabsInGroup) => {
+    if (!tabsInGroup || tabsInGroup.length === 0) return;
+
+    const hostnames = tabsInGroup
+      .map(t => safeHostname(t.url))
+      .filter(Boolean);
+    if (hostnames.length === 0) return;
+
+    const key = getGroupKey(hostnames[0]);
+    const subdomains = new Set(hostnames.map(h => parseDomain(h).sub).filter(Boolean));
+
+    let label;
+    if (subdomains.size > 1) {
+      label = getDisplayNameFromDomain(parseDomain(hostnames[0]).base);
+    } else {
+      label = getDisplayNameFromDomain(hostnames[0]);
+    }
+
+    try {
+      chrome.tabGroups.update(groupId, {
+        title: `${label} · ${tabsInGroup.length}`
+      });
+    } catch { /* ignore */ }
+  });
+}
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.url && isWebUrl(changeInfo.url)) {
+    autoGroupTab(tabId, changeInfo.url);
+  }
 });
 
 chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
@@ -420,18 +511,7 @@ chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
     if (!res.autoGroupTabs) return;
 
     chrome.tabGroups.query({}, (groups) => {
-      groups.forEach((group) => {
-        chrome.tabs.query({ groupId: group.id }, (tabsInGroup) => {
-          if (tabsInGroup.length === 0) return;
-          const hostname = safeHostname(tabsInGroup[0].url);
-          if (!hostname) return;
-          try {
-            chrome.tabGroups.update(group.id, {
-              title: `${getDisplayNameFromDomain(hostname)} (${tabsInGroup.length})`
-            });
-          } catch { /* ignore */ }
-        });
-      });
+      groups.forEach((group) => updateGroupLabel(group.id));
     });
   });
 });
