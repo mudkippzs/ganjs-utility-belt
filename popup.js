@@ -190,6 +190,34 @@ document.addEventListener('DOMContentLoaded', () => {
           script: () => { const chapters = [...document.querySelectorAll('#description ytd-macro-markers-list-item-renderer, .ytd-macro-markers-list-item-renderer')].map(c => c.innerText.trim()); if (chapters.length) { navigator.clipboard.writeText(chapters.join('\n')); alert(`Copied ${chapters.length} chapters`); } else { const desc = document.querySelector('#description-inner')?.innerText || ''; const ts = desc.match(/\d{1,2}:\d{2}(?::\d{2})?.*/g); if (ts) { navigator.clipboard.writeText(ts.join('\n')); alert(`Copied ${ts.length} timestamps`); } else alert('No chapters found'); } }},
         { id: 'yt-transcript', icon: '📝', label: 'Transcript', desc: 'Open transcript panel',
           script: () => { const btn = [...document.querySelectorAll('button, ytd-button-renderer')].find(b => b.innerText?.includes('transcript') || b.innerText?.includes('Transcript') || b.ariaLabel?.includes('transcript')); if (btn) btn.click(); else alert('Transcript button not found — try opening the description first'); }},
+        { id: 'yt-dl', icon: '💾', label: 'Download', desc: 'Copy yt-dlp command or video URL',
+          script: () => {
+            const url = window.location.href;
+            const title = document.querySelector('h1.ytd-watch-metadata yt-formatted-string, #info-contents h1')?.textContent?.trim() || 'video';
+            const cmds = [
+              `# Download video:`,
+              `yt-dlp "${url}"`,
+              ``,
+              `# Best quality:`,
+              `yt-dlp -f "bestvideo+bestaudio" "${url}"`,
+              ``,
+              `# Audio only:`,
+              `yt-dlp -x --audio-format mp3 "${url}"`,
+              ``,
+              `# Title: ${title}`,
+            ].join('\n');
+            navigator.clipboard.writeText(cmds).then(() => alert('yt-dlp commands copied to clipboard!\n\nInstall yt-dlp: pip install yt-dlp'));
+          }},
+        { id: 'yt-thumb', icon: '🖼️', label: 'Thumbnail', desc: 'Download video thumbnail in max quality',
+          script: () => {
+            const m = window.location.href.match(/[?&]v=([^&]+)/);
+            if (!m) { alert('Not on a video page'); return; }
+            const id = m[1];
+            const a = document.createElement('a');
+            a.href = `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
+            a.download = `thumbnail-${id}.jpg`;
+            a.click();
+          }},
       ]
     };
 
@@ -246,6 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
   bindToolToggle('openScreenshot', 'ScreenshotTools');
   bindToolToggle('openRedirector', 'URLRedirector');
   bindToolToggle('toggleImageMagnifier', 'ImageMagnifier');
+  bindToolToggle('openMediaScanner', 'MediaScanner');
 
   // --- Notification test ---
   document.getElementById('testNotifications').addEventListener('click', () => {

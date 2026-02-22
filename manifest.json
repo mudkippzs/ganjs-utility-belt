@@ -53,7 +53,8 @@
       "modules/imageMagnifier.js",
       "modules/redirector.js",
       "modules/networkTools.js",
-      "modules/dataTools.js"
+      "modules/dataTools.js",
+      "modules/mediaScanner.js"
     ],
     "run_at": "document_idle"
   }],

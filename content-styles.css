@@ -1078,6 +1078,126 @@
 }
 .gub-highlight:hover { background-color: #fbbf24; }
 
+/* ===== MEDIA SCANNER ===== */
+.gub-media-overlay {
+  position: fixed !important;
+  top: 0 !important; left: 0 !important;
+  width: 100vw !important; height: 100vh !important;
+  background: rgba(15, 23, 42, 0.85) !important;
+  backdrop-filter: blur(4px) !important;
+  z-index: 999999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-family: var(--ganj-font-sans) !important;
+}
+.gub-media-panel {
+  background: #fff !important;
+  border-radius: 14px !important;
+  width: 92vw !important; max-width: 1100px !important;
+  height: 85vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-shadow: var(--ganj-shadow-lg) !important;
+  overflow: hidden !important;
+}
+.gub-media-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 14px 18px !important;
+  border-bottom: 1px solid var(--ganj-border) !important;
+  flex-shrink: 0 !important;
+}
+.gub-media-header h3 { margin: 0 !important; font-size: 15px !important; color: var(--ganj-text) !important; }
+.gub-media-close {
+  background: none !important; border: none !important;
+  font-size: 20px !important; cursor: pointer !important;
+  color: var(--ganj-text-muted) !important; padding: 4px 8px !important;
+  border-radius: 6px !important;
+}
+.gub-media-close:hover { background: #fee2e2 !important; color: #dc2626 !important; }
+.gub-media-filters {
+  display: flex !important;
+  gap: 6px !important;
+  padding: 10px 18px !important;
+  border-bottom: 1px solid var(--ganj-border) !important;
+  align-items: center !important;
+  flex-shrink: 0 !important;
+}
+.gub-filter {
+  padding: 5px 12px !important;
+  border: 1px solid var(--ganj-border) !important;
+  border-radius: 16px !important;
+  background: var(--ganj-bg-alt) !important;
+  cursor: pointer !important;
+  font-size: 12px !important;
+  color: var(--ganj-text-secondary) !important;
+  transition: all 0.1s !important;
+}
+.gub-filter:hover { border-color: var(--ganj-primary) !important; }
+.gub-filter.active {
+  background: var(--ganj-primary) !important;
+  color: white !important;
+  border-color: var(--ganj-primary) !important;
+}
+.gub-media-grid {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  padding: 14px !important;
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important;
+  gap: 10px !important;
+  align-content: start !important;
+}
+.gub-media-card {
+  border: 2px solid var(--ganj-border) !important;
+  border-radius: 10px !important;
+  overflow: hidden !important;
+  cursor: pointer !important;
+  transition: all 0.15s !important;
+  background: var(--ganj-bg-alt) !important;
+  position: relative !important;
+}
+.gub-media-card:hover { border-color: var(--ganj-primary) !important; transform: translateY(-2px) !important; box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important; }
+.gub-media-card.selected { border-color: var(--ganj-primary) !important; background: #eff6ff !important; }
+.gub-media-thumb {
+  height: 120px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  background: #f1f5f9 !important;
+}
+.gub-media-thumb img { width: 100% !important; height: 100% !important; object-fit: cover !important; }
+.gub-media-icon { font-size: 32px !important; }
+.gub-media-info {
+  padding: 6px 8px !important;
+  display: flex !important;
+  gap: 6px !important;
+  align-items: center !important;
+  font-size: 11px !important;
+  color: var(--ganj-text-secondary) !important;
+}
+.gub-media-badge {
+  padding: 1px 6px !important;
+  border-radius: 4px !important;
+  color: white !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.3px !important;
+}
+.gub-media-size { font-weight: 600 !important; }
+.gub-media-dims { color: var(--ganj-text-faint) !important; }
+.gub-media-check {
+  position: absolute !important;
+  top: 6px !important; right: 6px !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5) !important;
+  color: white !important;
+}
+
 /* ===== FLOATING TIMER ===== */
 #pomodoro-floating-timer { font-family: var(--ganj-font-sans) !important; }
 

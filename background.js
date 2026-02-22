@@ -179,6 +179,7 @@ chrome.runtime.onInstalled.addListener(() => {
     chrome.contextMenus.create({ id: 'annotateSelection', title: '📌 Annotate Selection', contexts: ['selection'] });
     chrome.contextMenus.create({ id: 'annotateImage', title: '🖼️ Annotate Image', contexts: ['image'] });
     chrome.contextMenus.create({ id: 'annotateVideo', title: '🎥 Annotate Video', contexts: ['video'] });
+    chrome.contextMenus.create({ id: 'mediaScanner', title: '📁 Scan Page Media', contexts: ['page'] });
     chrome.contextMenus.create({ id: 'screenshot', title: '📸 Screenshot', contexts: ['page'] });
     chrome.contextMenus.create({ id: 'quickActions', title: '🚀 Quick Actions', contexts: ['page'] });
     chrome.contextMenus.create({ id: 'sep1', type: 'separator', contexts: ['page'] });
@@ -221,6 +222,7 @@ chrome.runtime.onInstalled.addListener(() => {
 // --- Context menu handler ---
 
 const TOOL_TOGGLE_MAP = {
+  mediaScanner: 'MediaScanner',
   screenshot: 'ScreenshotTools',
   quickActions: 'QuickActions',
   cssEditor: 'CSSEditor',
