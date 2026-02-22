@@ -8,55 +8,72 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let countdownInterval = null;
 
-  // Restore settings and ensure showFloatingTimer default
+  // --- Settings restore ---
   chrome.storage.sync.get(['showFloatingTimer', 'autoStartNextFocus'], (res) => {
-    console.log('[Popup] Loaded settings:', res);
-    toggleFloatingTimer.checked = res.showFloatingTimer !== false; // Default to true
+    toggleFloatingTimer.checked = res.showFloatingTimer !== false;
     toggleAutoFocus.checked = res.autoStartNextFocus ?? false;
     if (res.showFloatingTimer === undefined) {
       chrome.storage.sync.set({ showFloatingTimer: true });
     }
   });
 
+  // --- Tool toggle helper ---
+  function bindToolToggle(buttonId, globalName) {
+    document.getElementById(buttonId).addEventListener('click', () => {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (!tabs[0]) return;
+        chrome.scripting.executeScript({
+          target: { tabId: tabs[0].id },
+          func: (name) => { if (window[name]) window[name].toggle(); },
+          args: [globalName]
+        });
+      });
+      window.close();
+    });
+  }
+
+  bindToolToggle('openQuickActions', 'QuickActions');
+  bindToolToggle('openCSSEditor', 'CSSEditor');
+  bindToolToggle('openJSEditor', 'JSEditor');
+  bindToolToggle('openCrossTabSearch', 'CrossTabSearch');
+  bindToolToggle('openColorTools', 'ColorTools');
+  bindToolToggle('openNetworkTools', 'NetworkTools');
+  bindToolToggle('openDataTools', 'DataTools');
+  bindToolToggle('openAutoRefresh', 'AutoRefresh');
+  bindToolToggle('openTextTools', 'TextTools');
+  bindToolToggle('openScreenshot', 'ScreenshotTools');
+  bindToolToggle('openRedirector', 'URLRedirector');
+  bindToolToggle('toggleImageMagnifier', 'ImageMagnifier');
+
+  // --- Notification test ---
   document.getElementById('testNotifications').addEventListener('click', () => {
-    console.log('[Popup] Requesting notification permission and testing');
     Notification.requestPermission().then((permission) => {
       if (permission === 'granted') {
-        console.log('[Popup] Notification permission granted');
-        chrome.runtime.sendMessage(
-          { action: 'testNotification' },
-          () => {
-            if (chrome.runtime.lastError) {
-              console.error('[Popup] Test notification message error:', chrome.runtime.lastError.message);
-            } else {
-              console.log('[Popup] Test notification message sent');
-            }
-          }
-        );
+        chrome.runtime.sendMessage({ action: 'testNotification' });
       } else {
-        console.warn('[Popup] Notification permission denied');
-        alert('Notifications are disabled. Please enable them in Chrome settings (chrome://settings/content/notifications) to receive Pomodoro alerts.');
+        alert('Notifications are disabled. Please enable them in Chrome settings to receive Pomodoro alerts.');
       }
     });
   });
 
+  // --- Pomodoro start button state ---
   function updateStartButtonState() {
-    pomodoroStart.disabled = pomodoroTask.value.trim() === '' && !document.querySelector('#pomodoroSection input:focus');
+    pomodoroStart.disabled = pomodoroTask.value.trim() === '';
   }
 
   pomodoroTask.addEventListener('input', updateStartButtonState);
   updateStartButtonState();
 
+  // --- Pomodoro controls ---
   pomodoroCancel.addEventListener('click', () => {
-    console.log('[Popup] Cancel clicked');
     pomodoroTask.value = '';
     Pomodoro.clearState();
-    chrome.storage.local.remove(['pomodoroPaused', 'pomodoroRemaining'], updatePomodoroUI);
+    updatePomodoroUI();
   });
 
   pomodoroStart.addEventListener('click', () => {
     const task = pomodoroTask.value.trim();
-    console.log('[Popup] Starting focus with task:', task);
+    if (!task) return;
     Pomodoro.startTimer('focus', task);
     updatePomodoroUI();
   });
@@ -66,16 +83,15 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   toggleFloatingTimer.addEventListener('change', () => {
-    console.log('[Popup] Toggle floating timer:', toggleFloatingTimer.checked);
     chrome.storage.sync.set({ showFloatingTimer: toggleFloatingTimer.checked });
     chrome.runtime.sendMessage({ action: 'toggleFloatingTimer', enabled: toggleFloatingTimer.checked });
   });
 
   toggleAutoFocus.addEventListener('change', () => {
-    console.log('[Popup] Toggle auto focus:', toggleAutoFocus.checked);
     chrome.storage.sync.set({ autoStartNextFocus: toggleAutoFocus.checked });
   });
 
+  // --- Pomodoro UI helpers ---
   function resetPomodoroUI() {
     clearInterval(countdownInterval);
     Pomodoro.getSettings().then(settings => {
@@ -109,7 +125,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (left <= 0) {
         clearInterval(countdownInterval);
         pomodoroTimer.textContent = '00:00';
-        // Wait for state update from background.js
         setTimeout(updatePomodoroUI, 100);
       } else {
         updateDisplay(left);
@@ -122,13 +137,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function updatePomodoroUI() {
     chrome.storage.local.get(['pomodoroState', 'pomodoroPaused', 'pomodoroRemaining'], (res) => {
-      console.log('[Popup] Updating UI:', res);
       const state = res.pomodoroState;
       const paused = res.pomodoroPaused ?? false;
       const remaining = res.pomodoroRemaining;
 
       if (!state) {
-        console.log('[Popup] No state, resetting UI');
         resetPomodoroUI();
         return;
       }
@@ -148,11 +161,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.pomodoroState) {
-      console.log('[Popup] Storage changed:', changes.pomodoroState);
       updatePomodoroUI();
     }
   });
 
+  // --- Tab management ---
   document.getElementById('groupTabs').addEventListener('click', () => {
     chrome.runtime.sendMessage({ action: 'groupTabs' });
   });
@@ -161,6 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.runtime.sendMessage({ action: 'ungroupTabs' });
   });
 
+  // --- Tab sets ---
   const saveForm = document.getElementById('saveForm');
   const setNameInput = document.getElementById('setName');
   const setsContainer = document.getElementById('setsContainer');
@@ -179,7 +193,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderSets(sets) {
     setsContainer.innerHTML = '';
-    Object.entries(sets).forEach(([name, tabs]) => {
+    const entries = Object.entries(sets);
+
+    if (entries.length === 0) {
+      setsContainer.innerHTML = '<div class="empty-state">No saved tab sets yet</div>';
+      return;
+    }
+
+    entries.forEach(([name, tabs]) => {
       const wrapper = document.createElement('div');
       wrapper.className = 'tabSet';
 
@@ -192,7 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const openBtn = document.createElement('button');
       openBtn.textContent = 'Open';
-      openBtn.onclick = async () => {
+      openBtn.onclick = () => {
         chrome.runtime.sendMessage({ action: 'openTabSet', setName: name });
       };
 
@@ -206,137 +227,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
       actions.appendChild(openBtn);
       actions.appendChild(deleteBtn);
-
       wrapper.appendChild(title);
       wrapper.appendChild(actions);
       setsContainer.appendChild(wrapper);
     });
   }
 });
-// === NEW TOOL HANDLERS ===
-
-// Quick Actions Hub
-document.getElementById('openQuickActions').addEventListener('click', () => {
-  chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-    chrome.scripting.executeScript({
-      target: {tabId: tabs[0].id},
-      func: () => { if (window.QuickActions) window.QuickActions.toggle(); }
-    });
-  });
-  window.close();
-});
-
-// Developer Tools
-document.getElementById('openCSSEditor').addEventListener('click', () => {
-  chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-    chrome.scripting.executeScript({
-      target: {tabId: tabs[0].id},
-      func: () => { if (window.CSSEditor) window.CSSEditor.toggle(); }
-    });
-  });
-  window.close();
-});
-
-document.getElementById('openJSEditor').addEventListener('click', () => {
-  chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-    chrome.scripting.executeScript({
-      target: {tabId: tabs[0].id},
-      func: () => { if (window.JSEditor) window.JSEditor.toggle(); }
-    });
-  });
-  window.close();
-});
-
-document.getElementById('openCrossTabSearch').addEventListener('click', () => {
-  chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-    chrome.scripting.executeScript({
-      target: {tabId: tabs[0].id},
-      func: () => { if (window.CrossTabSearch) window.CrossTabSearch.toggle(); }
-    });
-  });
-  window.close();
-});
-
-document.getElementById('openColorTools').addEventListener('click', () => {
-  chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-    chrome.scripting.executeScript({
-      target: {tabId: tabs[0].id},
-      func: () => { if (window.ColorTools) window.ColorTools.toggle(); }
-    });
-  });
-  window.close();
-});
-
-// Productivity Tools
-document.getElementById('openAutoRefresh').addEventListener('click', () => {
-  chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-    chrome.scripting.executeScript({
-      target: {tabId: tabs[0].id},
-      func: () => { if (window.AutoRefresh) window.AutoRefresh.toggle(); }
-    });
-  });
-  window.close();
-});
-
-document.getElementById('openTextTools').addEventListener('click', () => {
-  chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-    chrome.scripting.executeScript({
-      target: {tabId: tabs[0].id},
-      func: () => { if (window.TextTools) window.TextTools.toggle(); }
-    });
-  });
-  window.close();
-});
-
-document.getElementById('openScreenshot').addEventListener('click', () => {
-  chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-    chrome.scripting.executeScript({
-      target: {tabId: tabs[0].id},
-      func: () => { if (window.ScreenshotTools) window.ScreenshotTools.toggle(); }
-    });
-  });
-  window.close();
-});
-
-document.getElementById('openRedirector').addEventListener('click', () => {
-  chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-    chrome.scripting.executeScript({
-      target: {tabId: tabs[0].id},
-      func: () => { if (window.URLRedirector) window.URLRedirector.toggle(); }
-    });
-  });
-  window.close();
-});
-
-// Image Tools
-document.getElementById('toggleImageMagnifier').addEventListener('click', () => {
-  chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-    chrome.scripting.executeScript({
-      target: {tabId: tabs[0].id},
-      func: () => { if (window.ImageMagnifier) window.ImageMagnifier.toggle(); }
-    });
-  });
-  window.close();
-});
-
-// Developer Tools
-document.getElementById('openNetworkTools').addEventListener('click', () => {
-  chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-    chrome.scripting.executeScript({
-      target: {tabId: tabs[0].id},
-      func: () => { if (window.NetworkTools) window.NetworkTools.toggle(); }
-    });
-  });
-  window.close();
-});
-
-document.getElementById('openDataTools').addEventListener('click', () => {
-  chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-    chrome.scripting.executeScript({
-      target: {tabId: tabs[0].id},
-      func: () => { if (window.DataTools) window.DataTools.toggle(); }
-    });
-  });
-  window.close();
-});
-
