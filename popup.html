@@ -7,106 +7,136 @@
   <link rel="stylesheet" href="styles.css">
   <script src="modules/tabSetSaver.js"></script>
   <script src="modules/pomodoro.js"></script>
+  <script src="icons/popup-icons.js"></script>
   <script src="popup.js" defer></script>
 </head>
 <body>
-  <h1>🛠️ Ganj's Utility Belt</h1>
+  <header class="popup-header">
+    <h1 class="popup-title"><span class="popup-title-icon" aria-hidden="true"></span> Ganj's Utility Belt</h1>
+  </header>
 
-  <!-- Site-specific tools (injected by JS based on current tab) -->
-  <div id="siteToolsContainer"></div>
+  <main class="popup-main">
+    <div id="siteToolsContainer"></div>
 
-  <div class="section collapsible" id="quickActionsSection">
-    <h2 class="section-toggle">🚀 Quick Actions <span class="chevron">▾</span></h2>
-    <div class="section-body">
-      <button id="openQuickActions" class="feature-btn">🚀 Quick Actions Hub</button>
-      <div class="shortcut-hint">Ctrl+Shift+Q</div>
-    </div>
-  </div>
-
-  <div class="section collapsible" id="devToolsSection">
-    <h2 class="section-toggle">💻 Developer Tools <span class="chevron">▾</span></h2>
-    <div class="section-body">
-      <div class="tool-grid">
-        <button id="openCSSEditor" class="tool-btn">🎨 CSS Editor</button>
-        <button id="openJSEditor" class="tool-btn">💻 JS Runner</button>
-        <button id="openCrossTabSearch" class="tool-btn">🔍 Tab Search</button>
-        <button id="openColorTools" class="tool-btn">🎨 Color Tools</button>
-        <button id="openNetworkTools" class="tool-btn">🌐 Network</button>
-        <button id="openDataTools" class="tool-btn">📊 Data Tools</button>
+    <div class="section collapsible" id="quickActionsSection" data-category="quick">
+      <h2 class="section-toggle"><span class="section-chevron" aria-hidden="true"></span> Quick Actions</h2>
+      <div class="section-body">
+        <ul class="popup-list" role="list">
+          <li class="popup-list-row" data-id="openQuickActions">
+            <span class="popup-list-icon" data-icon="quick"></span>
+            <span class="popup-list-label">Quick Actions Hub</span>
+            <span class="popup-list-shortcut">Ctrl+Shift+Q</span>
+          </li>
+        </ul>
       </div>
     </div>
-  </div>
 
-  <div class="section collapsible" id="productivitySection">
-    <h2 class="section-toggle">⚡ Productivity <span class="chevron">▾</span></h2>
-    <div class="section-body">
-      <div class="tool-grid">
-        <button id="openAutoRefresh" class="tool-btn">⏱️ Auto-Refresh</button>
-        <button id="openTextTools" class="tool-btn">📝 Text Tools</button>
-        <button id="openScreenshot" class="tool-btn">📸 Screenshot</button>
-        <button id="openRedirector" class="tool-btn">🔄 Redirector</button>
+    <div class="section collapsible" id="devToolsSection" data-category="dev">
+      <h2 class="section-toggle"><span class="section-chevron" aria-hidden="true"></span> Developer Tools</h2>
+      <div class="section-body">
+        <ul class="popup-list" role="list">
+          <li class="popup-list-row" data-id="openCSSEditor"><span class="popup-list-icon" data-icon="css"></span><span class="popup-list-label">CSS Editor</span><span class="popup-list-shortcut"></span></li>
+          <li class="popup-list-row" data-id="openJSEditor"><span class="popup-list-icon" data-icon="js"></span><span class="popup-list-label">JS Runner</span><span class="popup-list-shortcut"></span></li>
+          <li class="popup-list-row" data-id="openCrossTabSearch"><span class="popup-list-icon" data-icon="search"></span><span class="popup-list-label">Tab Search</span><span class="popup-list-shortcut"></span></li>
+          <li class="popup-list-row" data-id="openColorTools"><span class="popup-list-icon" data-icon="color"></span><span class="popup-list-label">Color Tools</span><span class="popup-list-shortcut"></span></li>
+          <li class="popup-list-row" data-id="openNetworkTools"><span class="popup-list-icon" data-icon="network"></span><span class="popup-list-label">Network</span><span class="popup-list-shortcut"></span></li>
+          <li class="popup-list-row" data-id="openDataTools"><span class="popup-list-icon" data-icon="data"></span><span class="popup-list-label">Data Tools</span><span class="popup-list-shortcut"></span></li>
+        </ul>
       </div>
     </div>
-  </div>
 
-  <div class="section collapsible" id="mediaSection">
-    <h2 class="section-toggle">🖼️ Media Tools <span class="chevron">▾</span></h2>
-    <div class="section-body">
-      <div class="tool-grid">
-        <button id="openMediaScanner" class="tool-btn">📁 Media Scanner</button>
-        <button id="toggleImageMagnifier" class="tool-btn">🔍 Magnifier</button>
+    <div class="section collapsible" id="productivitySection" data-category="productivity">
+      <h2 class="section-toggle"><span class="section-chevron" aria-hidden="true"></span> Productivity</h2>
+      <div class="section-body">
+        <ul class="popup-list" role="list">
+          <li class="popup-list-row" data-id="openAutoRefresh"><span class="popup-list-icon" data-icon="refresh"></span><span class="popup-list-label">Auto-Refresh</span><span class="popup-list-shortcut"></span></li>
+          <li class="popup-list-row" data-id="openTextTools"><span class="popup-list-icon" data-icon="text"></span><span class="popup-list-label">Text Tools</span><span class="popup-list-shortcut"></span></li>
+          <li class="popup-list-row" data-id="openScreenshot"><span class="popup-list-icon" data-icon="screenshot"></span><span class="popup-list-label">Screenshot</span><span class="popup-list-shortcut"></span></li>
+          <li class="popup-list-row" data-id="openRedirector"><span class="popup-list-icon" data-icon="redirect"></span><span class="popup-list-label">Redirector</span><span class="popup-list-shortcut"></span></li>
+        </ul>
       </div>
     </div>
-  </div>
 
-  <div class="section collapsible" id="notesSection">
-    <h2 class="section-toggle">📝 Notes <span class="chevron">▾</span></h2>
-    <div class="section-body">
-      <button id="viewAllNotes" class="feature-btn">📝 View All Notes</button>
-    </div>
-  </div>
-
-  <div class="section collapsible" id="tabManagementSection">
-    <h2 class="section-toggle">🗃️ Tab Management <span class="chevron">▾</span></h2>
-    <div class="section-body">
-      <div class="tool-grid">
-        <button id="groupTabs">📦 Group Tabs</button>
-        <button id="ungroupTabs">🧹 Ungroup Tabs</button>
+    <div class="section collapsible" id="mediaSection" data-category="media">
+      <h2 class="section-toggle"><span class="section-chevron" aria-hidden="true"></span> Media Tools</h2>
+      <div class="section-body">
+        <ul class="popup-list" role="list">
+          <li class="popup-list-row" data-id="openMediaScanner"><span class="popup-list-icon" data-icon="media"></span><span class="popup-list-label">Media Scanner</span><span class="popup-list-shortcut"></span></li>
+          <li class="popup-list-row" data-id="toggleImageMagnifier"><span class="popup-list-icon" data-icon="magnifier"></span><span class="popup-list-label">Magnifier</span><span class="popup-list-shortcut"></span></li>
+        </ul>
       </div>
     </div>
-  </div>
 
-  <div class="section collapsible" id="tabSetsSection">
-    <h2 class="section-toggle">📂 Tab Sets <span class="chevron">▾</span></h2>
-    <div class="section-body">
-      <form id="saveForm">
-        <input type="text" id="setName" placeholder="Set name" required />
-        <button type="submit">💾 Save</button>
-      </form>
-      <div id="setsContainer"></div>
+    <div class="section collapsible" id="notesSection" data-category="notes">
+      <h2 class="section-toggle"><span class="section-chevron" aria-hidden="true"></span> Notes</h2>
+      <div class="section-body">
+        <ul class="popup-list" role="list">
+          <li class="popup-list-row" data-id="viewAllNotes"><span class="popup-list-icon" data-icon="notes"></span><span class="popup-list-label">View All Notes</span><span class="popup-list-shortcut"></span></li>
+        </ul>
+      </div>
     </div>
-  </div>
 
-  <div class="section collapsible" id="pomodoroSection">
-    <h2 class="section-toggle">⏱️ Pomodoro Focus <span class="chevron">▾</span></h2>
-    <div class="section-body">
-      <input id="pomodoroTask" type="text" placeholder="What are you focusing on?" />
-      <div id="pomodoroControls">
-        <div id="pomodoroTimer">25:00</div>
-        <button id="pomodoroStart">▶️ Start Focus</button>
-        <button id="pomodoroCancel" style="display: none;">🛑 Cancel</button>
-        <div class="pomodoro-options">
-          <label><input type="checkbox" id="toggleFloatingTimer" /> Floating Timer</label>
-          <label><input type="checkbox" id="toggleAutoFocus" /> Auto-start Next</label>
-          <button id="testNotifications">🔔 Test</button>
-          <button id="viewReport">📊 Report</button>
+    <div class="section collapsible" id="tabManagementSection" data-category="tabs">
+      <h2 class="section-toggle"><span class="section-chevron" aria-hidden="true"></span> Tab Management</h2>
+      <div class="section-body">
+        <ul class="popup-list" role="list">
+          <li class="popup-list-row" data-id="groupTabs"><span class="popup-list-icon" data-icon="group"></span><span class="popup-list-label">Group Tabs</span><span class="popup-list-shortcut"></span></li>
+          <li class="popup-list-row" data-id="ungroupTabs"><span class="popup-list-icon" data-icon="ungroup"></span><span class="popup-list-label">Ungroup Tabs</span><span class="popup-list-shortcut"></span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section collapsible" id="tabSetsSection" data-category="sets">
+      <h2 class="section-toggle"><span class="section-chevron" aria-hidden="true"></span> Tab Sets</h2>
+      <div class="section-body">
+        <form id="saveForm" class="popup-save-form">
+          <input type="text" id="setName" placeholder="Set name" required />
+          <button type="submit" class="popup-save-btn"><span class="popup-list-icon" data-icon="save"></span> Save</button>
+        </form>
+        <div id="setsContainer"></div>
+      </div>
+    </div>
+
+    <div class="section collapsible" id="pomodoroSection" data-category="pomodoro">
+      <h2 class="section-toggle"><span class="section-chevron" aria-hidden="true"></span> Pomodoro Focus</h2>
+      <div class="section-body">
+        <input id="pomodoroTask" type="text" placeholder="What are you focusing on?" />
+        <div id="pomodoroControls">
+          <div id="pomodoroTimer">25:00</div>
+          <button id="pomodoroStart" class="popup-pomodoro-btn"><span class="popup-list-icon" data-icon="play"></span> Start Focus</button>
+          <button id="pomodoroCancel" class="popup-pomodoro-btn cancel" style="display: none;"><span class="popup-list-icon" data-icon="stop"></span> Cancel</button>
+          <div class="pomodoro-options">
+            <label><input type="checkbox" id="toggleFloatingTimer" /> Floating Timer</label>
+            <label><input type="checkbox" id="toggleAutoFocus" /> Auto-start Next</label>
+            <button id="testNotifications" class="popup-util-btn">Test</button>
+            <button id="viewReport" class="popup-util-btn">Report</button>
+          </div>
         </div>
       </div>
     </div>
+  </main>
+
+  <div aria-hidden="true" style="position:absolute;left:-9999px;width:0;height:0;overflow:hidden;">
+    <button type="button" id="openQuickActions"></button>
+    <button type="button" id="openCSSEditor"></button>
+    <button type="button" id="openJSEditor"></button>
+    <button type="button" id="openCrossTabSearch"></button>
+    <button type="button" id="openColorTools"></button>
+    <button type="button" id="openNetworkTools"></button>
+    <button type="button" id="openDataTools"></button>
+    <button type="button" id="openAutoRefresh"></button>
+    <button type="button" id="openTextTools"></button>
+    <button type="button" id="openScreenshot"></button>
+    <button type="button" id="openRedirector"></button>
+    <button type="button" id="toggleImageMagnifier"></button>
+    <button type="button" id="openMediaScanner"></button>
+    <button type="button" id="groupTabs"></button>
+    <button type="button" id="ungroupTabs"></button>
+    <button type="button" id="viewAllNotes"></button>
   </div>
 
-  <div class="footer">
-    <a href="options.html" target="_blank">⚙️ Options</a>
-  </div>
+  <footer class="popup-footer">
+    <a href="options.html" target="_blank" class="popup-footer-link"><span class="popup-list-icon" data-icon="settings"></span> Options</a>
+  </footer>
 </body>
 </html>

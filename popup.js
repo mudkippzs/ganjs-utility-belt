@@ -8,23 +8,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let countdownInterval = null;
 
+  // --- Inject SVG icons ---
+  const ICONS = typeof POPUP_ICONS !== 'undefined' ? POPUP_ICONS : {};
+  function injectIcons() {
+    document.querySelectorAll('.popup-list-icon[data-icon]').forEach(el => {
+      const key = el.getAttribute('data-icon');
+      if (ICONS[key]) el.innerHTML = ICONS[key];
+    });
+    const titleIcon = document.querySelector('.popup-title-icon');
+    if (titleIcon && ICONS.belt) titleIcon.innerHTML = ICONS.belt;
+    document.querySelectorAll('.section-chevron').forEach(el => {
+      el.innerHTML = ICONS.chevronDown || '▾';
+    });
+  }
+  injectIcons();
+
   // --- Collapsible sections ---
   chrome.storage.sync.get(['collapsedSections'], (res) => {
     const collapsed = res.collapsedSections || [];
     document.querySelectorAll('.section.collapsible').forEach(section => {
       const toggle = section.querySelector('.section-toggle');
       const body = section.querySelector('.section-body');
-      const chevron = section.querySelector('.chevron');
+      const chevron = section.querySelector('.section-chevron');
 
       if (collapsed.includes(section.id)) {
         body.style.display = 'none';
-        chevron.textContent = '▸';
+        section.classList.add('collapsed');
+        if (chevron && ICONS.chevronRight) chevron.innerHTML = ICONS.chevronRight;
       }
 
       toggle.addEventListener('click', () => {
         const isCollapsed = body.style.display === 'none';
         body.style.display = isCollapsed ? '' : 'none';
-        chevron.textContent = isCollapsed ? '▾' : '▸';
+        section.classList.toggle('collapsed', !isCollapsed);
+        if (chevron) {
+          chevron.innerHTML = isCollapsed ? (ICONS.chevronDown || '▾') : (ICONS.chevronRight || '▸');
+        }
 
         chrome.storage.sync.get(['collapsedSections'], (r) => {
           let list = r.collapsedSections || [];
@@ -39,7 +58,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // --- Site-specific tools ---
+  // --- Popup list row clicks (replace button IDs) ---
+  document.querySelectorAll('.popup-list-row[data-id]').forEach(row => {
+    row.addEventListener('click', () => {
+      const id = row.getAttribute('data-id');
+      const btn = document.getElementById(id);
+      if (btn) btn.click();
+    });
+  });
+
+  // --- Site-specific tools (compact list) ---
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     if (!tabs[0]?.url) return;
     let hostname;
@@ -53,20 +81,24 @@ document.addEventListener('DOMContentLoaded', () => {
       const container = document.getElementById('siteToolsContainer');
       const section = document.createElement('div');
       section.className = 'section site-tools-section';
+      const devIcon = ICONS.dev ? `<span class="popup-list-icon">${ICONS.dev}</span>` : '';
       section.innerHTML = `
-        <h2 style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-          <span>${siteTools.icon}</span>
-          <span>${siteTools.name} Tools</span>
-        </h2>
-        <div class="tool-grid">
-          ${siteTools.tools.map(t => `<button class="tool-btn site-tool-btn" data-site-tool="${t.id}" title="${t.desc || ''}">${t.icon} ${t.label}</button>`).join('')}
-        </div>
+        <h2>${siteTools.name} Tools</h2>
+        <ul class="popup-list" role="list">
+          ${siteTools.tools.map(t => `
+            <li class="site-tool-row" data-site-tool="${t.id}" title="${t.desc || ''}">
+              ${devIcon}
+              <span class="popup-list-label">${t.label}</span>
+              <span class="popup-list-shortcut"></span>
+            </li>
+          `).join('')}
+        </ul>
       `;
       container.appendChild(section);
 
-      section.querySelectorAll('.site-tool-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const toolId = btn.dataset.siteTool;
+      section.querySelectorAll('.site-tool-row').forEach(row => {
+        row.addEventListener('click', () => {
+          const toolId = row.dataset.siteTool;
           const tool = siteTools.tools.find(t => t.id === toolId);
           if (tool?.script) {
             chrome.scripting.executeScript({
@@ -384,9 +416,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // --- Tool toggle helper ---
+  // --- Tool toggle helper (invoked by popup-list-row data-id or by hidden buttons) ---
   function bindToolToggle(buttonId, globalName) {
-    document.getElementById(buttonId).addEventListener('click', () => {
+    const btn = document.getElementById(buttonId);
+    if (!btn) return;
+    btn.addEventListener('click', () => {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (!tabs[0]) return;
         chrome.scripting.executeScript({
@@ -399,19 +433,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  bindToolToggle('openQuickActions', 'QuickActions');
-  bindToolToggle('openCSSEditor', 'CSSEditor');
-  bindToolToggle('openJSEditor', 'JSEditor');
-  bindToolToggle('openCrossTabSearch', 'CrossTabSearch');
-  bindToolToggle('openColorTools', 'ColorTools');
-  bindToolToggle('openNetworkTools', 'NetworkTools');
-  bindToolToggle('openDataTools', 'DataTools');
-  bindToolToggle('openAutoRefresh', 'AutoRefresh');
-  bindToolToggle('openTextTools', 'TextTools');
-  bindToolToggle('openScreenshot', 'ScreenshotTools');
-  bindToolToggle('openRedirector', 'URLRedirector');
-  bindToolToggle('toggleImageMagnifier', 'ImageMagnifier');
-  bindToolToggle('openMediaScanner', 'MediaScanner');
+  // Hidden buttons for list-row delegation (keep in DOM for click() delegation)
+  const toolBindings = [
+    ['openQuickActions', 'QuickActions'],
+    ['openCSSEditor', 'CSSEditor'],
+    ['openJSEditor', 'JSEditor'],
+    ['openCrossTabSearch', 'CrossTabSearch'],
+    ['openColorTools', 'ColorTools'],
+    ['openNetworkTools', 'NetworkTools'],
+    ['openDataTools', 'DataTools'],
+    ['openAutoRefresh', 'AutoRefresh'],
+    ['openTextTools', 'TextTools'],
+    ['openScreenshot', 'ScreenshotTools'],
+    ['openRedirector', 'URLRedirector'],
+    ['toggleImageMagnifier', 'ImageMagnifier'],
+    ['openMediaScanner', 'MediaScanner'],
+  ];
+  toolBindings.forEach(([id, name]) => bindToolToggle(id, name));
 
   // --- Notification test ---
   document.getElementById('testNotifications').addEventListener('click', () => {
