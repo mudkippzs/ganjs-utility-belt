@@ -76,16 +76,19 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.storage.sync.set({ autoStartNextFocus: toggleAutoFocus.checked });
   });
 
-     function resetPomodoroUI() {
-     clearInterval(countdownInterval);
-     pomodoroTimer.textContent = '02:00';
-     pomodoroTask.value = '';
-     pomodoroTask.disabled = false;
-     pomodoroStart.style.display = 'block';
-     pomodoroCancel.style.display = 'none';
-     updateStartButtonState();
-     console.log('[Popup] UI reset');
-   }
+  function resetPomodoroUI() {
+    clearInterval(countdownInterval);
+    Pomodoro.getSettings().then(settings => {
+      const min = Math.floor(settings.focusDuration / 60000);
+      const sec = Math.floor((settings.focusDuration % 60000) / 1000);
+      pomodoroTimer.textContent = `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+    });
+    pomodoroTask.value = '';
+    pomodoroTask.disabled = false;
+    pomodoroStart.style.display = 'block';
+    pomodoroCancel.style.display = 'none';
+    updateStartButtonState();
+  }
 
   function updateDisplay(ms) {
     const min = Math.floor(ms / 60000);

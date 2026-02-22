@@ -29,74 +29,57 @@ function getDisplayNameFromDomain(hostname) {
 }
 
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'pomodoroTimer') {
-    chrome.storage.local.get(['pomodoroState', 'pomodoroLogs', 'autoStartNextFocus'], (res) => {
-      const state = res.pomodoroState;
-      const logs = res.pomodoroLogs || [];
+  if (alarm.name !== 'pomodoroTimer') return;
 
-      console.log('[Background] Alarm triggered:', { state, autoStartNextFocus: res.autoStartNextFocus });
+  chrome.storage.local.get(['pomodoroState', 'pomodoroLogs'], (localRes) => {
+    chrome.storage.sync.get(['autoStartNextFocus', 'pomodoroSettings'], (syncRes) => {
+      const state = localRes.pomodoroState;
+      const logs = localRes.pomodoroLogs || [];
+      const autoStart = syncRes.autoStartNextFocus ?? false;
+      const settings = syncRes.pomodoroSettings || {};
+      const focusDuration = settings.focusDuration || 25 * 60 * 1000;
+      const breakDuration = settings.shortBreakDuration || 5 * 60 * 1000;
 
-      if (!state) {
-        console.log('[Background] No state, skipping alarm');
-        return;
-      }
+      if (!state) return;
 
       if (state.type === 'focus') {
-        // Log the completed focus session
         logs.push({
           start: new Date(state.startTime).toISOString(),
-          duration: 2 * 60 * 1000, // 2 minutes for testing
+          duration: state.endTime - state.startTime,
           task: state.task || ''
         });
 
-        chrome.storage.local.set({ pomodoroLogs: logs }, () => {
-          console.log('[Background] Focus logged:', logs[logs.length - 1]);
+        const breakStart = Date.now();
+        const breakEnd = breakStart + breakDuration;
 
-          // Transition to break
-          const breakStart = Date.now();
-          const breakEnd = breakStart + 2 * 60 * 1000; // 2 minutes for testing
-
-          chrome.storage.local.set({
-            pomodoroState: {
-              type: 'break',
-              startTime: breakStart,
-              endTime: breakEnd,
-              task: ''
-            },
-            pomodoroPaused: false,
-            pomodoroRemaining: null
-          }, () => {
-            console.log('[Background] Break state set:', { type: 'break', startTime: breakStart, endTime: breakEnd });
-            chrome.alarms.clear('pomodoroTimer', () => {
-              chrome.alarms.create('pomodoroTimer', { when: breakEnd });
-              console.log('[Background] Created break alarm for', new Date(breakEnd));
-              chrome.notifications.create(
-                'focusComplete-' + Date.now(),
-                {
-                  type: 'basic',
-                  iconUrl: 'icon.png',
-                  title: 'Focus Complete!',
-                  message: 'Time to take a break!',
-                  priority: 2 // Higher priority to ensure visibility
-                },
-                () => {
-                  if (chrome.runtime.lastError) {
-                    console.error('[Background] Focus complete notification error:', chrome.runtime.lastError.message);
-                  } else {
-                    console.log('[Background] Focus complete notification created successfully');
-                  }
-                }
-              );
+        chrome.storage.local.set({
+          pomodoroLogs: logs,
+          pomodoroState: {
+            type: 'break',
+            startTime: breakStart,
+            endTime: breakEnd,
+            task: ''
+          },
+          pomodoroPaused: false,
+          pomodoroRemaining: null
+        }, () => {
+          chrome.alarms.clear('pomodoroTimer', () => {
+            chrome.alarms.create('pomodoroTimer', { when: breakEnd });
+            chrome.notifications.create('focusComplete-' + Date.now(), {
+              type: 'basic',
+              iconUrl: 'icon.png',
+              title: 'Focus Complete!',
+              message: 'Time to take a break!',
+              priority: 2
             });
           });
         });
+
       } else if (state.type === 'break') {
-        console.log('[Background] Break ended, autoStart:', res.autoStartNextFocus);
         chrome.alarms.clear('pomodoroTimer', () => {
-          if (res.autoStartNextFocus) {
-            // Start a new focus session
+          if (autoStart) {
             const focusStart = Date.now();
-            const focusEnd = focusStart + 2 * 60 * 1000; // 2 minutes for testing
+            const focusEnd = focusStart + focusDuration;
 
             chrome.storage.local.set({
               pomodoroState: {
@@ -108,54 +91,30 @@ chrome.alarms.onAlarm.addListener((alarm) => {
               pomodoroPaused: false,
               pomodoroRemaining: null
             }, () => {
-              console.log('[Background] New focus state set:', { type: 'focus', startTime: focusStart, endTime: focusEnd });
               chrome.alarms.create('pomodoroTimer', { when: focusEnd });
-              console.log('[Background] Created focus alarm for', new Date(focusEnd));
-              chrome.notifications.create(
-                'breakComplete-' + Date.now(),
-                {
-                  type: 'basic',
-                  iconUrl: 'icon.png',
-                  title: 'Break Complete!',
-                  message: 'Time to resume focus!',
-                  priority: 2
-                },
-                () => {
-                  if (chrome.runtime.lastError) {
-                    console.error('[Background] Break complete notification error:', chrome.runtime.lastError.message);
-                  } else {
-                    console.log('[Background] Break complete notification created successfully');
-                  }
-                }
-              );
+              chrome.notifications.create('breakComplete-' + Date.now(), {
+                type: 'basic',
+                iconUrl: 'icon.png',
+                title: 'Break Complete!',
+                message: 'Time to resume focus!',
+                priority: 2
+              });
             });
           } else {
-            // Clear state if autoStartNextFocus is false
             chrome.storage.local.remove(['pomodoroState', 'pomodoroPaused', 'pomodoroRemaining'], () => {
-              console.log('[Background] Break state cleared');
-              chrome.notifications.create(
-                'breakComplete-' + Date.now(),
-                {
-                  type: 'basic',
-                  iconUrl: 'icon.png',
-                  title: 'Break Complete!',
-                  message: 'Time to resume focus or start a new session!',
-                  priority: 2
-                },
-                () => {
-                  if (chrome.runtime.lastError) {
-                    console.error('[Background] Break complete (no auto focus) notification error:', chrome.runtime.lastError.message);
-                  } else {
-                    console.log('[Background] Break complete (no auto focus) notification created successfully');
-                  }
-                }
-              );
+              chrome.notifications.create('breakComplete-' + Date.now(), {
+                type: 'basic',
+                iconUrl: 'icon.png',
+                title: 'Break Complete!',
+                message: 'Time to resume focus or start a new session!',
+                priority: 2
+              });
             });
           }
         });
       }
     });
-  }
+  });
 });
 
 chrome.runtime.onInstalled.addListener(() => {
