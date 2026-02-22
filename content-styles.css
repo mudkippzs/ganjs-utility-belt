@@ -740,6 +740,66 @@
 .gradient-preview { height: 48px !important; border-radius: 8px !important; margin: 10px 0 !important; border: 1px solid var(--ganj-border) !important; }
 .gradient-css { background: #0f172a !important; color: #e2e8f0 !important; padding: 10px 12px !important; border-radius: 6px !important; font-family: var(--ganj-font-mono) !important; font-size: 12px !important; cursor: pointer !important; }
 
+/* ===== JSON TREE NAVIGATOR ===== */
+.nt-json-tree, #ntTreeView {
+  background: #0f172a !important;
+  color: #e2e8f0 !important;
+  font-family: var(--ganj-font-mono) !important;
+  font-size: 13px !important;
+  line-height: 1.6 !important;
+  padding: 14px !important;
+  border-radius: 8px !important;
+  overflow: auto !important;
+  max-height: 400px !important;
+}
+.nt-raw-body {
+  background: #0f172a !important;
+  color: #e2e8f0 !important;
+  font-family: var(--ganj-font-mono) !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+  padding: 14px !important;
+  border-radius: 8px !important;
+  overflow: auto !important;
+  max-height: 400px !important;
+  margin: 0 !important;
+  white-space: pre-wrap !important;
+  word-break: break-all !important;
+}
+.nt-toggle {
+  cursor: pointer !important;
+  display: inline-block !important;
+  width: 16px !important;
+  text-align: center !important;
+  color: #64748b !important;
+  user-select: none !important;
+  font-size: 11px !important;
+}
+.nt-toggle:hover { color: #93c5fd !important; }
+.nt-children { margin-left: 20px !important; }
+.nt-prop { padding: 1px 0 !important; }
+.nt-key { color: #93c5fd !important; }
+.nt-count {
+  font-size: 10px !important;
+  color: #64748b !important;
+  margin-left: 4px !important;
+  font-style: italic !important;
+}
+.nt-v-str { color: #86efac !important; }
+.nt-v-num { color: #fcd34d !important; }
+.nt-v-bool { color: #c4b5fd !important; font-weight: 600 !important; }
+.nt-v-null { color: #f87171 !important; font-style: italic !important; }
+.nt-v-bracket { color: #94a3b8 !important; }
+.nt-response-bar {
+  display: flex !important;
+  gap: 16px !important;
+  align-items: center !important;
+  margin-bottom: 10px !important;
+  font-size: 13px !important;
+  color: var(--ganj-text-secondary, #475569) !important;
+  flex-wrap: wrap !important;
+}
+
 /* ===== SHORTCUT HINTS ===== */
 .shortcut-hint {
   font-size: 11px !important;

@@ -335,34 +335,107 @@ const NetworkTools = (() => {
     resDiv.innerHTML = '<div class="no-data">Sending...</div>';
 
     const res = await bgFetch(url, opts);
+    lastResponseBody = res.body || '';
 
     if (res.error) {
       resDiv.innerHTML = `<div class="tool-result error"><strong>Error:</strong> ${escapeHtml(res.error)}<br>Time: ${res.time}ms</div>`;
       return;
     }
 
-    let bodyDisplay = res.body;
-    try { bodyDisplay = JSON.stringify(JSON.parse(res.body), null, 2); } catch {}
+    const statusColor = res.status < 300 ? '#059669' : res.status < 400 ? '#2563eb' : '#dc2626';
 
-    const statusColor = res.status < 300 ? 'var(--ganj-success,#059669)' : res.status < 400 ? '#2563eb' : 'var(--ganj-error,#dc2626)';
+    let bodyHtml;
+    let isJson = false;
+    try {
+      const parsed = JSON.parse(res.body);
+      isJson = true;
+      bodyHtml = buildJsonTree(parsed);
+    } catch {
+      bodyHtml = `<pre class="nt-raw-body">${escapeHtml(res.body)}</pre>`;
+    }
 
     resDiv.innerHTML = `
-      <div style="display:flex;gap:16px;margin-bottom:10px;font-size:13px;flex-wrap:wrap;">
+      <div class="nt-response-bar">
         <span style="font-weight:700;color:${statusColor};">${res.status} ${res.statusText}</span>
         <span>${res.time}ms</span>
         <span>${(res.body?.length || 0).toLocaleString()} bytes</span>
+        <div style="margin-left:auto;display:flex;gap:4px;">
+          ${isJson ? '<button class="btn-small btn-outline" id="ntToggleView">Raw</button>' : ''}
+          <button class="btn-small btn-primary" id="ntCopyBody">Copy</button>
+        </div>
       </div>
-      <div style="margin-bottom:8px;">
-        <details open>
-          <summary style="cursor:pointer;font-weight:600;font-size:13px;margin-bottom:6px;">Response Body</summary>
-          <pre style="background:#0f172a;color:#e2e8f0;padding:14px;border-radius:8px;font-size:13px;overflow:auto;max-height:300px;line-height:1.5;margin:0;">${escapeHtml(bodyDisplay)}</pre>
-        </details>
+      <div id="ntBodyContainer" style="margin-bottom:10px;">
+        <div id="ntTreeView">${bodyHtml}</div>
+        ${isJson ? `<pre class="nt-raw-body" id="ntRawView" style="display:none;">${escapeHtml(JSON.stringify(JSON.parse(res.body), null, 2))}</pre>` : ''}
       </div>
       <details>
         <summary style="cursor:pointer;font-weight:600;font-size:13px;margin-bottom:6px;">Response Headers</summary>
-        <pre style="background:#0f172a;color:#e2e8f0;padding:14px;border-radius:8px;font-size:13px;overflow:auto;max-height:200px;line-height:1.5;margin:0;">${escapeHtml(JSON.stringify(res.headers, null, 2))}</pre>
+        <div class="nt-json-tree" style="padding:10px;">${buildJsonTree(res.headers)}</div>
       </details>
     `;
+
+    resDiv.querySelector('#ntCopyBody').addEventListener('click', () => {
+      navigator.clipboard.writeText(lastResponseBody).then(() => {
+        const btn = resDiv.querySelector('#ntCopyBody');
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy', 1500);
+      });
+    });
+
+    if (isJson) {
+      let showRaw = false;
+      resDiv.querySelector('#ntToggleView').addEventListener('click', () => {
+        showRaw = !showRaw;
+        resDiv.querySelector('#ntTreeView').style.display = showRaw ? 'none' : '';
+        resDiv.querySelector('#ntRawView').style.display = showRaw ? '' : 'none';
+        resDiv.querySelector('#ntToggleView').textContent = showRaw ? 'Tree' : 'Raw';
+      });
+    }
+
+    resDiv.querySelectorAll('.nt-toggle').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const children = el.parentElement.querySelector('.nt-children');
+        if (children) {
+          const collapsed = children.style.display === 'none';
+          children.style.display = collapsed ? '' : 'none';
+          el.textContent = collapsed ? '▾' : '▸';
+        }
+      });
+    });
+  }
+
+  let lastResponseBody = '';
+
+  function buildJsonTree(data, depth = 0) {
+    if (data === null) return '<span class="nt-v-null">null</span>';
+    if (data === undefined) return '<span class="nt-v-null">undefined</span>';
+
+    const type = typeof data;
+    if (type === 'string') return `<span class="nt-v-str">"${escapeHtml(data)}"</span>`;
+    if (type === 'number') return `<span class="nt-v-num">${data}</span>`;
+    if (type === 'boolean') return `<span class="nt-v-bool">${data}</span>`;
+
+    if (Array.isArray(data)) {
+      if (data.length === 0) return '<span class="nt-v-bracket">[]</span>';
+      const collapsed = depth > 1;
+      const items = data.map((item, i) => {
+        return `<div class="nt-prop"><span class="nt-key">${i}</span>: ${buildJsonTree(item, depth + 1)}${i < data.length - 1 ? ',' : ''}</div>`;
+      }).join('');
+      return `<span class="nt-toggle">${collapsed ? '▸' : '▾'}</span><span class="nt-v-bracket">[</span><span class="nt-count">${data.length}</span><div class="nt-children" style="${collapsed ? 'display:none;' : ''}">${items}</div><span class="nt-v-bracket">]</span>`;
+    }
+
+    if (type === 'object') {
+      const keys = Object.keys(data);
+      if (keys.length === 0) return '<span class="nt-v-bracket">{}</span>';
+      const collapsed = depth > 1;
+      const items = keys.map((key, i) => {
+        return `<div class="nt-prop"><span class="nt-key">"${escapeHtml(key)}"</span>: ${buildJsonTree(data[key], depth + 1)}${i < keys.length - 1 ? ',' : ''}</div>`;
+      }).join('');
+      return `<span class="nt-toggle">${collapsed ? '▸' : '▾'}</span><span class="nt-v-bracket">{</span><span class="nt-count">${keys.length}</span><div class="nt-children" style="${collapsed ? 'display:none;' : ''}">${items}</div><span class="nt-v-bracket">}</span>`;
+    }
+
+    return escapeHtml(String(data));
   }
 
   // ---- Tools ----
