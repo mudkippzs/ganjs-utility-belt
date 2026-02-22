@@ -408,10 +408,37 @@ const messageHandlers = {
       target: { tabId: sender.tab.id },
       files: message.files
     }, () => {
+      sendResponse(chrome.runtime.lastError ? { error: chrome.runtime.lastError.message } : { ok: true });
+    });
+    return true;
+  },
+
+  executeInPage(message, sender, sendResponse) {
+    if (!sender.tab?.id || !message.code) return;
+    chrome.scripting.executeScript({
+      target: { tabId: sender.tab.id },
+      world: 'MAIN',
+      func: (code) => {
+        const logs = [];
+        const oL = console.log, oE = console.error, oW = console.warn;
+        console.log = function() { logs.push({ t: 'log', v: Array.from(arguments).map(String).join(' ') }); oL.apply(console, arguments); };
+        console.error = function() { logs.push({ t: 'error', v: Array.from(arguments).map(String).join(' ') }); oE.apply(console, arguments); };
+        console.warn = function() { logs.push({ t: 'warn', v: Array.from(arguments).map(String).join(' ') }); oW.apply(console, arguments); };
+        try {
+          const val = (0, eval)(code);
+          return { value: val === undefined ? undefined : String(val), logs };
+        } catch (e) {
+          return { error: e.message, logs };
+        } finally {
+          console.log = oL; console.error = oE; console.warn = oW;
+        }
+      },
+      args: [message.code]
+    }, (results) => {
       if (chrome.runtime.lastError) {
         sendResponse({ error: chrome.runtime.lastError.message });
       } else {
-        sendResponse({ ok: true });
+        sendResponse(results?.[0]?.result || { error: 'No result' });
       }
     });
     return true;

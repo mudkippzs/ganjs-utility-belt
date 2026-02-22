@@ -148,27 +148,13 @@ const JSEditor = (() => {
 
   function runInPageContext(code) {
     return new Promise((resolve) => {
-      const id = 'gub-js-' + Date.now() + '-' + Math.random().toString(36).slice(2);
-      const handler = (e) => { if (e.data?.type === id) { window.removeEventListener('message', handler); resolve(e.data); } };
-      window.addEventListener('message', handler);
-
-      const wrapped = `(function(){
-        var __r={type:'${id}'},__logs=[];
-        var __oL=console.log,__oE=console.error,__oW=console.warn;
-        console.log=function(){__logs.push({t:'log',v:Array.from(arguments).map(String).join(' ')});__oL.apply(console,arguments)};
-        console.error=function(){__logs.push({t:'error',v:Array.from(arguments).map(String).join(' ')});__oE.apply(console,arguments)};
-        console.warn=function(){__logs.push({t:'warn',v:Array.from(arguments).map(String).join(' ')});__oW.apply(console,arguments)};
-        try{var __v=(0,eval)(${JSON.stringify(code)});__r.value=__v===undefined?undefined:String(__v)}
-        catch(e){__r.error=e.message}
-        __r.logs=__logs;console.log=__oL;console.error=__oE;console.warn=__oW;
-        window.postMessage(__r,'*');
-      })()`;
-
-      const s = document.createElement('script');
-      s.textContent = wrapped;
-      document.documentElement.appendChild(s);
-      s.remove();
-      setTimeout(() => { window.removeEventListener('message', handler); resolve({ error: 'Timed out (5s)' }); }, 5000);
+      chrome.runtime.sendMessage({ action: 'executeInPage', code }, (result) => {
+        if (chrome.runtime.lastError) {
+          resolve({ error: chrome.runtime.lastError.message });
+        } else {
+          resolve(result || { error: 'No response' });
+        }
+      });
     });
   }
 
