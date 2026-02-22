@@ -27,12 +27,12 @@
     "options_page": "options.html",
     "content_scripts": [{
         "matches": ["<all_urls>"],
+        "css": ["content-styles.css"],
         "js": [
-            "modules/styleUtils.js",
-            "libs/marked.min.js", 
-            "libs/chart.min.js", 
-            "modules/stickyNotes.js", 
-            "modules/pomodoro.js", 
+            "modules/constants.js",
+            "libs/marked.min.js",
+            "modules/stickyNotes.js",
+            "modules/pomodoro.js",
             "modules/pomodoroOverlay.js",
             "modules/quickActions.js",
             "modules/autoRefresh.js",
@@ -47,6 +47,6 @@
             "modules/networkTools.js",
             "modules/dataTools.js"
         ],
-        "run_at": "document_start"
+        "run_at": "document_idle"
     }]
 }
