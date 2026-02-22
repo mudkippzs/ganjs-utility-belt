@@ -1,0 +1,53 @@
+{
+    "manifest_version": 3,
+    "name": "Ganj's Utility Belt",
+    "version": "2.0",
+    "description": "Professional productivity suite with 15+ tools: Pomodoro timer, tab management, sticky notes, CSS/JS editors, screenshot tools, color utilities, text manipulation, auto-refresh, cross-tab search, quick actions, URL redirector, image magnifier, and more.",
+    "host_permissions": ["<all_urls>"],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "action": {
+        "default_popup": "popup.html",
+        "default_icon": {
+            "16": "icon.png"
+        }
+    },
+    "icons": {
+        "16": "icon.png",
+        "32": "icon.png",
+        "48": "icon.png",
+        "128": "icon.png"
+    },
+    "permissions": [
+        "alarms", "tabs", "tabGroups", "scripting",
+        "storage", "activeTab", "contextMenus", "notifications",
+        "clipboardWrite", "clipboardRead", "desktopCapture", "bookmarks",
+        "webNavigation"
+    ],
+    "options_page": "options.html",
+    "content_scripts": [{
+        "matches": ["<all_urls>"],
+        "js": [
+            "modules/styleUtils.js",
+            "libs/marked.min.js", 
+            "libs/chart.min.js", 
+            "modules/stickyNotes.js", 
+            "modules/pomodoro.js", 
+            "modules/pomodoroOverlay.js",
+            "modules/quickActions.js",
+            "modules/autoRefresh.js",
+            "modules/crossTabSearch.js",
+            "modules/cssEditor.js",
+            "modules/jsEditor.js",
+            "modules/screenshotTools.js",
+            "modules/colorTools.js",
+            "modules/textTools.js",
+            "modules/imageMagnifier.js",
+            "modules/redirector.js",
+            "modules/networkTools.js",
+            "modules/dataTools.js"
+        ],
+        "run_at": "document_start"
+    }]
+}

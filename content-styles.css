@@ -1,0 +1,218 @@
+/* ===== SCOPED EXTENSION STYLES ===== */
+/* Only applies to extension-created elements */
+
+/* CSS Variables for extension tools */
+.ganj-extension-root {
+  --ganj-primary: #3b82f6;
+  --ganj-primary-hover: #2563eb;
+  --ganj-success: #10b981;
+  --ganj-warning: #f59e0b;
+  --ganj-error: #ef4444;
+  --ganj-gray-50: #f9fafb;
+  --ganj-gray-100: #f3f4f6;
+  --ganj-gray-200: #e5e7eb;
+  --ganj-gray-300: #d1d5db;
+  --ganj-gray-400: #9ca3af;
+  --ganj-gray-500: #6b7280;
+  --ganj-gray-700: #374151;
+  --ganj-gray-900: #111827;
+  --ganj-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --ganj-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --ganj-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --ganj-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Reset for extension elements only */
+.ganj-extension-root * {
+  box-sizing: border-box;
+}
+
+/* ===== QUICK ACTIONS HUB ===== */
+.quick-actions-hub {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(0, 0, 0, 0.7) !important;
+  z-index: 999999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-family: var(--ganj-font-sans) !important;
+}
+
+.quick-actions-overlay {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.quick-actions-modal {
+  background: white !important;
+  border-radius: 12px !important;
+  padding: 24px !important;
+  max-width: 500px !important;
+  width: 90% !important;
+  max-height: 80vh !important;
+  overflow-y: auto !important;
+  box-shadow: var(--ganj-shadow-lg) !important;
+  font-family: var(--ganj-font-sans) !important;
+}
+
+.quick-actions-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-bottom: 20px !important;
+}
+
+.quick-actions-header h3 {
+  margin: 0 !important;
+  font-size: 18px !important;
+  color: var(--ganj-gray-900) !important;
+}
+
+.quick-actions-close {
+  background: none !important;
+  border: none !important;
+  font-size: 20px !important;
+  cursor: pointer !important;
+  padding: 4px !important;
+  color: var(--ganj-gray-500) !important;
+}
+
+.quick-actions-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+  gap: 12px !important;
+}
+
+.action-btn {
+  padding: 16px 12px !important;
+  background: var(--ganj-gray-50) !important;
+  border: 2px solid var(--ganj-gray-200) !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  transition: var(--ganj-transition) !important;
+  text-align: center !important;
+  font-size: 12px !important;
+  font-family: var(--ganj-font-sans) !important;
+  color: var(--ganj-gray-700) !important;
+}
+
+.action-btn:hover {
+  background: var(--ganj-primary) !important;
+  color: white !important;
+  border-color: var(--ganj-primary) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* ===== AUTO REFRESH PANEL ===== */
+.auto-refresh-panel {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  background: white !important;
+  border-radius: 12px !important;
+  padding: 24px !important;
+  max-width: 400px !important;
+  width: 90% !important;
+  box-shadow: var(--ganj-shadow-lg) !important;
+  z-index: 999999 !important;
+  font-family: var(--ganj-font-sans) !important;
+}
+
+/* ===== SHARED MODAL STYLES ===== */
+.css-editor,
+.js-editor,
+.text-tools,
+.color-tools,
+.screenshot-tools,
+.url-redirector,
+.cross-tab-search {
+  font-family: var(--ganj-font-sans) !important;
+  color: var(--ganj-gray-900) !important;
+  z-index: 999999 !important;
+}
+
+/* Base button styles for extension */
+.ganj-btn-primary {
+  background: var(--ganj-primary) !important;
+  color: white !important;
+  border: none !important;
+  padding: 8px 16px !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  font-size: 12px !important;
+  font-family: var(--ganj-font-sans) !important;
+  transition: var(--ganj-transition) !important;
+}
+
+.ganj-btn-primary:hover {
+  background: var(--ganj-primary-hover) !important;
+}
+
+/* Hide class */
+.hidden {
+  display: none !important;
+}
+
+/* Extension notification styles */
+.quick-notification,
+.color-notification,
+.text-notification,
+.magnifier-notification {
+  position: fixed !important;
+  top: 20px !important;
+  right: 20px !important;
+  padding: 12px 20px !important;
+  border-radius: 6px !important;
+  color: white !important;
+  font-size: 13px !important;
+  z-index: 1000000 !important;
+  font-family: var(--ganj-font-sans) !important;
+  background: var(--ganj-success) !important;
+  animation: ganjSlideIn 0.3s ease !important;
+}
+
+@keyframes ganjSlideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* ===== IMAGE MAGNIFIER ===== */
+.image-magnifier {
+  border: 3px solid #fff !important;
+  box-shadow: 0 0 15px rgba(0,0,0,0.3) !important;
+}
+
+.selection-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(0,0,0,0.3) !important;
+  cursor: crosshair !important;
+  z-index: 999999 !important;
+}
+
+/* ===== FLOATING TIMER SPECIFIC ===== */
+#pomodoro-floating-timer {
+  font-family: var(--ganj-font-sans) !important;
+}
+
+/* ===== STICKY NOTES SPECIFIC ===== */
+.sticky-note {
+  font-family: var(--ganj-font-sans) !important;
+}

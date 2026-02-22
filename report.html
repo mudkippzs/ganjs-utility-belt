@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Pomodoro Report</title>
+  <script src="libs/chart.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 24px;
+      background-color: #f4f4f4;
+    }
+
+    h1 {
+      font-size: 20px;
+      margin-bottom: 16px;
+    }
+
+    canvas {
+      max-width: 100%;
+      height: auto;
+    }
+
+    #summary {
+      margin: 16px 0;
+      font-size: 14px;
+    }
+
+    select {
+      font-size: 14px;
+      padding: 4px 8px;
+    }
+  </style>
+</head>
+<body>
+  <h1>📊 Focus Report</h1>
+  <label for="rangeSelect">View:</label>
+  <select id="rangeSelect">
+    <option value="today">Today</option>
+    <option value="week">Last 7 Days</option>
+    <option value="month">This Month</option>
+  </select>
+
+  <div id="summary"></div>
+  <canvas id="reportChart"></canvas>
+
+  <script src="report.js"></script>
+</body>
+</html>
