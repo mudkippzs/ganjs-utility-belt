@@ -4,148 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ganj's Utility Belt - Options</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #f5f7fa;
-      color: #1f2937;
-      padding: 24px;
-      max-width: 720px;
-      margin: auto;
-      line-height: 1.5;
-    }
-
-    h1 {
-      font-size: 24px;
-      margin-bottom: 8px;
-      background: linear-gradient(135deg, #3b82f6, #2563eb);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-    .subtitle { font-size: 14px; color: #6b7280; margin-bottom: 24px; }
-
-    section {
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-      padding: 20px 24px;
-      margin-bottom: 20px;
-      border: 1px solid #e5e7eb;
-    }
-    section:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-
-    h2 { font-size: 16px; margin-bottom: 16px; color: #374151; display: flex; align-items: center; gap: 8px; }
-
-    .setting-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 0;
-      border-bottom: 1px solid #f3f4f6;
-    }
-    .setting-row:last-child { border-bottom: none; }
-
-    .setting-label { font-size: 14px; color: #374151; }
-    .setting-desc { font-size: 12px; color: #9ca3af; margin-top: 2px; }
-
-    select, input[type="number"] {
-      padding: 6px 10px;
-      border: 1px solid #d1d5db;
-      border-radius: 6px;
-      font-size: 14px;
-      background: white;
-      min-width: 80px;
-    }
-    select:focus, input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.1); }
-
-    .toggle {
-      position: relative;
-      width: 44px;
-      height: 24px;
-      flex-shrink: 0;
-    }
-    .toggle input { opacity: 0; width: 0; height: 0; }
-    .toggle-slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: #d1d5db;
-      border-radius: 12px;
-      transition: 0.2s;
-    }
-    .toggle-slider:before {
-      content: "";
-      position: absolute;
-      height: 18px; width: 18px;
-      left: 3px; bottom: 3px;
-      background: white;
-      border-radius: 50%;
-      transition: 0.2s;
-    }
-    .toggle input:checked + .toggle-slider { background: #3b82f6; }
-    .toggle input:checked + .toggle-slider:before { transform: translateX(20px); }
-
-    button {
-      padding: 10px 16px;
-      font-size: 14px;
-      background: #3b82f6;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    button:hover { background: #2563eb; }
-    button.secondary { background: #6b7280; }
-    button.secondary:hover { background: #4b5563; }
-    button.danger { background: #ef4444; }
-    button.danger:hover { background: #dc2626; }
-
-    .btn-row { display: flex; gap: 8px; margin-top: 12px; }
-
-    .toast {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      background: #10b981;
-      color: white;
-      padding: 12px 20px;
-      border-radius: 8px;
-      font-size: 14px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      transform: translateY(80px);
-      opacity: 0;
-      transition: all 0.3s ease;
-      z-index: 1000;
-    }
-    .toast.visible { transform: translateY(0); opacity: 1; }
-
-    .site-url-input {
-      width: 100%;
-      padding: 8px 10px;
-      border: 1px solid #d1d5db;
-      border-radius: 6px;
-      font-size: 13px;
-      font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
-      line-height: 1.5;
-      resize: vertical;
-      background: #f8fafc;
-    }
-    .site-url-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.1); }
-
-    @media (prefers-color-scheme: dark) {
-      body { background: #111827; color: #f3f4f6; }
-      section { background: #1f2937; border-color: #374151; }
-      h2 { color: #e5e7eb; }
-      .setting-label { color: #e5e7eb; }
-      .setting-desc { color: #6b7280; }
-      .setting-row { border-color: #374151; }
-      select, input[type="number"] { background: #374151; border-color: #4b5563; color: #f3f4f6; }
-    }
-  </style>
+  <link rel="stylesheet" href="options.css">
 </head>
 <body>
   <h1>⚙️ Ganj's Utility Belt</h1>
@@ -281,26 +140,26 @@
   <!-- Site Tools URL Config -->
   <section>
     <h2>🌐 Site-Specific Tools</h2>
-    <p style="font-size:13px;color:#64748b;margin-bottom:16px;">Configure which URLs trigger each site toolset. One domain per line. Tools appear at the top of the popup when visiting a matching site.</p>
+    <p class="site-section-desc">Configure which URLs trigger each site toolset. One domain per line. Tools appear at the top of the popup when visiting a matching site.</p>
 
-    <div class="setting-row" style="flex-direction:column;align-items:stretch;">
-      <div class="setting-label" style="margin-bottom:4px;">🟠 Reddit</div>
+    <div class="setting-row setting-row-column">
+      <div class="setting-label setting-label-block">🟠 Reddit</div>
       <textarea id="siteUrlReddit" class="site-url-input" rows="2" placeholder="reddit.com"></textarea>
     </div>
-    <div class="setting-row" style="flex-direction:column;align-items:stretch;">
-      <div class="setting-label" style="margin-bottom:4px;">𝕏 Twitter / X</div>
+    <div class="setting-row setting-row-column">
+      <div class="setting-label setting-label-block">𝕏 Twitter / X</div>
       <textarea id="siteUrlTwitter" class="site-url-input" rows="2" placeholder="twitter.com&#10;x.com"></textarea>
     </div>
-    <div class="setting-row" style="flex-direction:column;align-items:stretch;">
-      <div class="setting-label" style="margin-bottom:4px;">▶️ YouTube</div>
+    <div class="setting-row setting-row-column">
+      <div class="setting-label setting-label-block">▶️ YouTube</div>
       <textarea id="siteUrlYoutube" class="site-url-input" rows="2" placeholder="youtube.com"></textarea>
     </div>
-    <div class="setting-row" style="flex-direction:column;align-items:stretch;">
-      <div class="setting-label" style="margin-bottom:4px;">📷 Imgur</div>
+    <div class="setting-row setting-row-column">
+      <div class="setting-label setting-label-block">📷 Imgur</div>
       <textarea id="siteUrlImgur" class="site-url-input" rows="2" placeholder="imgur.com"></textarea>
     </div>
-    <div class="setting-row" style="flex-direction:column;align-items:stretch;">
-      <div class="setting-label" style="margin-bottom:4px;">🍀 Imageboard (4chan)</div>
+    <div class="setting-row setting-row-column">
+      <div class="setting-label setting-label-block">🍀 Imageboard (4chan)</div>
       <textarea id="siteUrlChan" class="site-url-input" rows="2" placeholder="4chan.org&#10;4channel.org"></textarea>
     </div>
     <div class="btn-row">
