@@ -1,48 +1,163 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Pomodoro Report</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Focus Report - Ganj's Utility Belt</title>
   <script src="libs/chart.min.js"></script>
   <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      font-family: Arial, sans-serif;
-      padding: 24px;
-      background-color: #f4f4f4;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 24px 32px;
+      background: #f5f7fa;
+      color: #1f2937;
+      max-width: 900px;
+      margin: auto;
     }
 
-    h1 {
-      font-size: 20px;
-      margin-bottom: 16px;
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
     }
 
-    canvas {
-      max-width: 100%;
-      height: auto;
-    }
+    h1 { font-size: 22px; }
 
-    #summary {
-      margin: 16px 0;
-      font-size: 14px;
+    .controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
     }
 
     select {
+      padding: 8px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
       font-size: 14px;
-      padding: 4px 8px;
+      background: white;
+    }
+
+    button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-export { background: #3b82f6; color: white; }
+    .btn-export:hover { background: #2563eb; }
+    .btn-clear { background: #ef4444; color: white; }
+    .btn-clear:hover { background: #dc2626; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      border: 1px solid #e5e7eb;
+      text-align: center;
+    }
+    .stat-value { font-size: 28px; font-weight: 700; color: #3b82f6; }
+    .stat-label { font-size: 12px; color: #6b7280; margin-top: 4px; }
+
+    .chart-container {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      border: 1px solid #e5e7eb;
+      margin-bottom: 24px;
+    }
+
+    canvas { max-width: 100%; height: auto; }
+
+    .task-breakdown {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      border: 1px solid #e5e7eb;
+    }
+
+    .task-breakdown h3 {
+      font-size: 16px;
+      margin-bottom: 16px;
+      color: #374151;
+    }
+
+    .task-list { list-style: none; }
+
+    .task-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid #f3f4f6;
+      font-size: 14px;
+    }
+    .task-item:last-child { border-bottom: none; }
+
+    .task-name { color: #374151; flex: 1; }
+    .task-sessions { color: #6b7280; font-size: 12px; margin-right: 12px; }
+    .task-time { font-weight: 600; color: #3b82f6; }
+
+    .empty-state {
+      text-align: center;
+      color: #9ca3af;
+      padding: 48px 24px;
+      font-size: 15px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body { background: #111827; color: #f3f4f6; }
+      .stat-card, .chart-container, .task-breakdown { background: #1f2937; border-color: #374151; }
+      .stat-label { color: #9ca3af; }
+      .task-name { color: #e5e7eb; }
+      select { background: #374151; border-color: #4b5563; color: #f3f4f6; }
     }
   </style>
 </head>
 <body>
-  <h1>📊 Focus Report</h1>
-  <label for="rangeSelect">View:</label>
-  <select id="rangeSelect">
-    <option value="today">Today</option>
-    <option value="week">Last 7 Days</option>
-    <option value="month">This Month</option>
-  </select>
+  <div class="header">
+    <h1>📊 Focus Report</h1>
+    <div class="controls">
+      <select id="rangeSelect">
+        <option value="today">Today</option>
+        <option value="week" selected>Last 7 Days</option>
+        <option value="month">This Month</option>
+        <option value="all">All Time</option>
+      </select>
+      <button class="btn-export" id="exportBtn">📥 Export CSV</button>
+      <button class="btn-clear" id="clearBtn">🗑️ Clear</button>
+    </div>
+  </div>
 
-  <div id="summary"></div>
-  <canvas id="reportChart"></canvas>
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-value" id="totalSessions">0</div><div class="stat-label">Sessions</div></div>
+    <div class="stat-card"><div class="stat-value" id="totalMinutes">0</div><div class="stat-label">Minutes Focused</div></div>
+    <div class="stat-card"><div class="stat-value" id="avgSession">0</div><div class="stat-label">Avg Min / Session</div></div>
+    <div class="stat-card"><div class="stat-value" id="streak">0</div><div class="stat-label">Day Streak</div></div>
+  </div>
+
+  <div class="chart-container">
+    <canvas id="reportChart"></canvas>
+  </div>
+
+  <div class="task-breakdown">
+    <h3>📋 Task Breakdown</h3>
+    <ul class="task-list" id="taskList"></ul>
+  </div>
 
   <script src="report.js"></script>
 </body>
