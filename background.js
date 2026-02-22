@@ -152,10 +152,33 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 // --- Installation ---
 
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: 'createStickyNote',
-    title: 'Create Sticky Note Here',
-    contexts: ['page', 'selection']
+  chrome.contextMenus.removeAll(() => {
+    // Top-level quick access
+    chrome.contextMenus.create({ id: 'stickyNote', title: '📝 Create Sticky Note', contexts: ['page', 'selection'] });
+    chrome.contextMenus.create({ id: 'screenshot', title: '📸 Screenshot', contexts: ['page'] });
+    chrome.contextMenus.create({ id: 'quickActions', title: '🚀 Quick Actions', contexts: ['page'] });
+    chrome.contextMenus.create({ id: 'sep1', type: 'separator', contexts: ['page'] });
+
+    // Developer Tools submenu
+    chrome.contextMenus.create({ id: 'devTools', title: '💻 Developer Tools', contexts: ['page'] });
+    chrome.contextMenus.create({ id: 'cssEditor', parentId: 'devTools', title: '🎨 CSS Editor', contexts: ['page'] });
+    chrome.contextMenus.create({ id: 'jsEditor', parentId: 'devTools', title: '💻 JS Editor', contexts: ['page'] });
+    chrome.contextMenus.create({ id: 'networkTools', parentId: 'devTools', title: '🌐 Network Tools', contexts: ['page'] });
+    chrome.contextMenus.create({ id: 'dataTools', parentId: 'devTools', title: '📊 Data Tools', contexts: ['page'] });
+    chrome.contextMenus.create({ id: 'colorTools', parentId: 'devTools', title: '🎨 Color Tools', contexts: ['page'] });
+
+    // Productivity submenu
+    chrome.contextMenus.create({ id: 'productivity', title: '⚡ Productivity', contexts: ['page'] });
+    chrome.contextMenus.create({ id: 'crossTabSearch', parentId: 'productivity', title: '🔍 Cross-Tab Search', contexts: ['page'] });
+    chrome.contextMenus.create({ id: 'textTools', parentId: 'productivity', title: '📝 Text Tools', contexts: ['page'] });
+    chrome.contextMenus.create({ id: 'autoRefresh', parentId: 'productivity', title: '⏱️ Auto-Refresh', contexts: ['page'] });
+    chrome.contextMenus.create({ id: 'redirector', parentId: 'productivity', title: '🔄 URL Redirector', contexts: ['page'] });
+    chrome.contextMenus.create({ id: 'imageMagnifier', parentId: 'productivity', title: '🔍 Image Magnifier', contexts: ['page'] });
+
+    // Tab Management submenu
+    chrome.contextMenus.create({ id: 'tabMgmt', title: '🗃️ Tab Management', contexts: ['page'] });
+    chrome.contextMenus.create({ id: 'groupTabs', parentId: 'tabMgmt', title: '📦 Group Tabs by Domain', contexts: ['page'] });
+    chrome.contextMenus.create({ id: 'ungroupTabs', parentId: 'tabMgmt', title: '🧹 Ungroup All Tabs', contexts: ['page'] });
   });
 
   chrome.storage.sync.get(['showFloatingTimer'], (res) => {
@@ -171,42 +194,70 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
-// --- Context menu ---
+// --- Context menu handler ---
+
+const TOOL_TOGGLE_MAP = {
+  screenshot: 'ScreenshotTools',
+  quickActions: 'QuickActions',
+  cssEditor: 'CSSEditor',
+  jsEditor: 'JSEditor',
+  networkTools: 'NetworkTools',
+  dataTools: 'DataTools',
+  colorTools: 'ColorTools',
+  crossTabSearch: 'CrossTabSearch',
+  textTools: 'TextTools',
+  autoRefresh: 'AutoRefresh',
+  redirector: 'URLRedirector',
+  imageMagnifier: 'ImageMagnifier',
+};
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId !== 'createStickyNote') return;
   if (!tab?.id || !isWebUrl(tab.url)) return;
 
-  chrome.tabs.sendMessage(tab.id, { action: 'getClickPosition' }, (coords) => {
-    if (chrome.runtime.lastError) return;
+  // Sticky note
+  if (info.menuItemId === 'stickyNote') {
+    chrome.tabs.sendMessage(tab.id, { action: 'getClickPosition' }, (coords) => {
+      if (chrome.runtime.lastError) return;
 
-    let cleanUrl;
-    try {
-      const pageUrl = new URL(tab.url);
-      pageUrl.hash = '';
-      cleanUrl = pageUrl.toString();
-    } catch { return; }
+      let cleanUrl;
+      try { const u = new URL(tab.url); u.hash = ''; cleanUrl = u.toString(); }
+      catch { return; }
 
-    const noteData = {
-      x: coords?.x || 100,
-      y: coords?.y || 100,
-      content: info.selectionText || '',
-      title: '',
-      color: '#fffae6',
-      font: 'Arial',
-      url: cleanUrl,
-      id: `${Date.now()}-${Math.random()}`
-    };
+      const noteData = {
+        x: coords?.x || 100, y: coords?.y || 100,
+        content: info.selectionText || '', title: '',
+        color: '#fffae6', font: 'Arial', url: cleanUrl,
+        id: `${Date.now()}-${Math.random()}`
+      };
 
-    chrome.storage.local.get({ stickyNotes: [] }, ({ stickyNotes }) => {
-      stickyNotes.push(noteData);
-      chrome.storage.local.set({ stickyNotes }, () => {
-        chrome.tabs.sendMessage(tab.id, { action: 'restoreStickyNotes', notes: [noteData] }, () => {
-          void chrome.runtime.lastError;
+      chrome.storage.local.get({ stickyNotes: [] }, ({ stickyNotes }) => {
+        stickyNotes.push(noteData);
+        chrome.storage.local.set({ stickyNotes }, () => {
+          chrome.tabs.sendMessage(tab.id, { action: 'restoreStickyNotes', notes: [noteData] }, () => {
+            void chrome.runtime.lastError;
+          });
         });
       });
     });
-  });
+    return;
+  }
+
+  // Tab management
+  if (info.menuItemId === 'groupTabs' || info.menuItemId === 'ungroupTabs') {
+    const handler = messageHandlers[info.menuItemId];
+    if (handler) handler({}, { tab }, () => {});
+    return;
+  }
+
+  // Tool toggles
+  const globalName = TOOL_TOGGLE_MAP[info.menuItemId];
+  if (globalName) {
+    chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: (name) => { if (window[name]) window[name].toggle(); },
+      args: [globalName]
+    });
+  }
 });
 
 // --- Unified message handler ---
