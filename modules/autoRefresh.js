@@ -55,12 +55,12 @@ const AutoRefresh = (() => {
             </select>
           </div>
           
-          <div class="setting-group" id="selectorGroup" style="display: none;">
+          <div class="setting-group ganj-toggle-hidden" id="selectorGroup">
             <label>CSS Selector:</label>
             <input type="text" id="elementSelector" placeholder="e.g., .price, #status">
           </div>
           
-          <div class="setting-group" id="valueGroup" style="display: none;">
+          <div class="setting-group ganj-toggle-hidden" id="valueGroup">
             <label>Expected Value:</label>
             <input type="text" id="expectedValue" placeholder="Value to watch for">
           </div>
@@ -87,7 +87,7 @@ const AutoRefresh = (() => {
         
         <div class="refresh-controls">
           <button id="startRefresh" class="btn-primary">Start Auto-Refresh</button>
-          <button id="stopRefresh" class="btn-secondary" style="display: none;">Stop Refresh</button>
+          <button id="stopRefresh" class="btn-secondary ganj-toggle-hidden">Stop Refresh</button>
           <button id="refreshNow" class="btn-outline">Refresh Now</button>
         </div>
       </div>
@@ -115,8 +115,8 @@ const AutoRefresh = (() => {
       const needsSelector = ['element-change', 'element-appears', 'element-disappears'].includes(condition);
       const needsValue = condition === 'element-change';
       
-      selectorGroup.style.display = needsSelector ? 'block' : 'none';
-      valueGroup.style.display = needsValue ? 'block' : 'none';
+      selectorGroup.classList.toggle('ganj-toggle-hidden', !needsSelector);
+      valueGroup.classList.toggle('ganj-toggle-hidden', !needsValue);
     });
 
     container.querySelector('.refresh-close').addEventListener('click', hide);
@@ -227,14 +227,8 @@ const AutoRefresh = (() => {
   function updateUI() {
     const startBtn = container.querySelector('#startRefresh');
     const stopBtn = container.querySelector('#stopRefresh');
-
-    if (isActive) {
-      startBtn.style.display = 'none';
-      stopBtn.style.display = 'block';
-    } else {
-      startBtn.style.display = 'block';
-      stopBtn.style.display = 'none';
-    }
+    startBtn.classList.toggle('ganj-toggle-hidden', isActive);
+    stopBtn.classList.toggle('ganj-toggle-hidden', !isActive);
   }
 
   function updateStatus() {

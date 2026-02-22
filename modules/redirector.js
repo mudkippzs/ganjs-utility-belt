@@ -191,7 +191,7 @@ const URLRedirector = (() => {
           <strong>Current:</strong> ${currentUrl}<br>
           <strong>Would redirect to:</strong> <a href="${targetUrl}" target="_blank">${targetUrl}</a><br>
           <strong>Captures:</strong> ${result.captures.map((c, i) => `$${i+1}="${c}"`).join(', ')}<br>
-          ${isLoop ? '<strong style="color: red;">⚠️ WARNING: This would create a redirect loop!</strong>' : ''}
+          ${isLoop ? '<strong class="test-loop-warning">⚠️ WARNING: This would create a redirect loop!</strong>' : ''}
         </div>
       `;
     } else {

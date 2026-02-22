@@ -86,7 +86,7 @@ const NetworkTools = (() => {
                 <input type="url" id="ntUrl" placeholder="https://api.example.com/endpoint">
                 <button id="ntSend" class="btn-primary">Send</button>
               </div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+              <div class="nt-api-quick-row">
                 <button class="btn-small btn-outline" data-qt="https://httpbin.org/get">GET test</button>
                 <button class="btn-small btn-outline" data-qt="https://httpbin.org/post" data-qm="POST">POST test</button>
                 <button class="btn-small btn-outline" data-qt="https://httpbin.org/status/404">404 test</button>
@@ -94,19 +94,19 @@ const NetworkTools = (() => {
                 <button class="btn-small btn-outline" data-qt="https://httpbin.org/delay/1">Slow (1s)</button>
                 <button class="btn-small btn-outline" data-qt="https://jsonplaceholder.typicode.com/todos/1">JSON API</button>
               </div>
-              <details style="margin-bottom:8px;">
-                <summary style="cursor:pointer;font-size:13px;color:var(--ganj-text-secondary,#475569);margin-bottom:8px;">Headers & Body</summary>
-                <div id="ntHeaders" style="margin-bottom:8px;">
-                  <div class="header-row" style="display:flex;gap:6px;margin-bottom:4px;">
-                    <input type="text" placeholder="Header name" class="header-key" style="flex:1;">
-                    <input type="text" placeholder="value" class="header-value" style="flex:1;">
+              <details class="nt-details">
+                <summary>Headers & Body</summary>
+                <div id="ntHeaders" class="nt-headers">
+                  <div class="header-row">
+                    <input type="text" placeholder="Header name" class="header-key">
+                    <input type="text" placeholder="value" class="header-value">
                   </div>
                 </div>
-                <button id="ntAddHeader" class="btn-small btn-outline" style="margin-bottom:8px;">+ Header</button>
-                <textarea id="ntBody" placeholder='{"key": "value"}' style="width:100%;height:80px;font-family:var(--ganj-font-mono,monospace);font-size:13px;padding:8px;border:1px solid var(--ganj-border,#e2e8f0);border-radius:6px;resize:vertical;color:var(--ganj-text,#1e293b);"></textarea>
+                <button id="ntAddHeader" class="btn-small btn-outline nt-add-header-btn">+ Header</button>
+                <textarea id="ntBody" class="nt-body" placeholder='{"key": "value"}'></textarea>
               </details>
             </div>
-            <div id="ntResponse" style="margin-top:12px;">
+            <div id="ntResponse" class="nt-response-wrap">
               <div class="no-data">Send a request to see the response.</div>
             </div>
           </div>
@@ -116,33 +116,33 @@ const NetworkTools = (() => {
             <div class="network-tools-grid">
               <div class="tool-card">
                 <h4>📡 Ping</h4>
-                <div style="display:flex;gap:6px;">
-                  <input type="text" id="ntPingHost" placeholder="example.com" style="flex:1;">
+                <div class="tool-row">
+                  <input type="text" id="ntPingHost" placeholder="example.com">
                   <button id="ntPing" class="btn-primary btn-small">Ping</button>
                 </div>
                 <div id="ntPingResult"></div>
               </div>
               <div class="tool-card">
                 <h4>📄 HTTP Headers</h4>
-                <div style="display:flex;gap:6px;">
-                  <input type="url" id="ntHeadersUrl" placeholder="https://example.com" style="flex:1;">
+                <div class="tool-row">
+                  <input type="url" id="ntHeadersUrl" placeholder="https://example.com">
                   <button id="ntCheckHeaders" class="btn-primary btn-small">Check</button>
                 </div>
                 <div id="ntHeadersResult"></div>
               </div>
               <div class="tool-card">
                 <h4>🔗 URL Analyzer</h4>
-                <div style="display:flex;gap:6px;">
-                  <input type="url" id="ntAnalyzeUrl" placeholder="https://example.com/path?q=1" style="flex:1;">
+                <div class="tool-row">
+                  <input type="url" id="ntAnalyzeUrl" placeholder="https://example.com/path?q=1">
                   <button id="ntAnalyze" class="btn-primary btn-small">Analyze</button>
                 </div>
                 <div id="ntAnalyzeResult"></div>
               </div>
               <div class="tool-card">
                 <h4>🚀 Perf Test</h4>
-                <div style="display:flex;gap:6px;">
-                  <input type="url" id="ntPerfUrl" placeholder="https://example.com" style="flex:1;">
-                  <input type="number" id="ntPerfCount" value="5" min="1" max="20" style="width:50px;">
+                <div class="tool-row">
+                  <input type="url" id="ntPerfUrl" placeholder="https://example.com">
+                  <input type="number" id="ntPerfCount" class="nt-perf-count" value="5" min="1" max="20">
                   <button id="ntPerf" class="btn-primary btn-small">Run</button>
                 </div>
                 <div id="ntPerfResult"></div>
@@ -152,9 +152,9 @@ const NetworkTools = (() => {
 
           <!-- Security -->
           <div class="network-tab-content" data-tab="security">
-            <div style="margin-bottom:16px;">
+            <div class="nt-security-intro">
               <button id="ntRunSecurity" class="btn-primary">🔒 Run Security Scan</button>
-              <span style="font-size:12px;color:var(--ganj-text-muted,#64748b);margin-left:8px;">Checks current page headers & configuration</span>
+              <span class="nt-security-hint">Checks current page headers & configuration</span>
             </div>
             <div id="ntSecurityResults"><div class="no-data">Click Run to scan this page for common security issues.</div></div>
           </div>
@@ -196,10 +196,9 @@ const NetworkTools = (() => {
     container.querySelector('#ntAddHeader').addEventListener('click', () => {
       const row = document.createElement('div');
       row.className = 'header-row';
-      row.style.cssText = 'display:flex;gap:6px;margin-bottom:4px;';
-      row.innerHTML = `<input type="text" placeholder="Header" class="header-key" style="flex:1;">
-        <input type="text" placeholder="value" class="header-value" style="flex:1;">
-        <button class="btn-small btn-danger" style="padding:4px 8px;">×</button>`;
+      row.innerHTML = `<input type="text" placeholder="Header" class="header-key">
+        <input type="text" placeholder="value" class="header-value">
+        <button class="btn-small btn-danger" type="button">×</button>`;
       row.querySelector('button').onclick = () => row.remove();
       container.querySelector('#ntHeaders').appendChild(row);
     });

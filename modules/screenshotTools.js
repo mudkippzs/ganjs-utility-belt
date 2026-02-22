@@ -24,8 +24,8 @@ const ScreenshotTools = (() => {
     container.className = 'screenshot-tools hidden ganj-modal-panel';
     container.id = 'ganj-modal-screenshotTools';
     container.innerHTML = `
-      <div class="tools-header ganj-modal-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-        <h3 style="margin:0;font-size:16px;font-weight:600;color:var(--ganj-text,#1e293b);">📸 Screenshot</h3>
+      <div class="tools-header ganj-modal-header">
+        <h3>📸 Screenshot</h3>
         <button class="tools-close">✕</button>
       </div>
       <div class="ganj-modal-body">
@@ -39,17 +39,17 @@ const ScreenshotTools = (() => {
           <button class="capture-btn" data-cap="fullpage">📄 Full Page</button>
         </div>
         <div class="capture-settings">
-          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
-            <label style="font-size:12px;">Format:
+          <div class="screenshot-format-row">
+            <label>Format:
               <select id="ssFormat"><option value="png">PNG</option><option value="jpeg">JPEG</option><option value="webp">WebP</option></select>
             </label>
-            <label style="font-size:12px;">Quality:
-              <input type="range" id="ssQuality" min="0.1" max="1" step="0.1" value="0.9" style="width:80px;vertical-align:middle;">
+            <label>Quality:
+              <input type="range" id="ssQuality" min="0.1" max="1" step="0.1" value="0.9" class="ss-quality-range">
               <span id="ssQualityVal">90%</span>
             </label>
           </div>
         </div>
-        <div id="ssStatus" style="font-size:12px;color:var(--ganj-text-muted,#64748b);margin-top:8px;">Ready to capture</div>
+        <div id="ssStatus" class="ss-status">Ready to capture</div>
       </div>
 
       <!-- Editor mode -->
