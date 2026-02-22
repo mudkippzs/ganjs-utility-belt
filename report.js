@@ -81,7 +81,7 @@ function renderChart(logs) {
       datasets: [{
         label: 'Minutes Focused',
         data,
-        backgroundColor: '#3b82f6',
+        backgroundColor: '#22d3ee',
         borderRadius: 6,
         barPercentage: 0.6
       }]
@@ -90,8 +90,15 @@ function renderChart(logs) {
       responsive: true,
       plugins: { legend: { display: false } },
       scales: {
-        y: { beginAtZero: true, ticks: { stepSize: 15 }, grid: { color: '#f3f4f6' } },
-        x: { grid: { display: false } }
+        y: {
+          beginAtZero: true,
+          ticks: { stepSize: 15, color: '#94a3b8' },
+          grid: { color: '#2d3748' }
+        },
+        x: {
+          grid: { display: false },
+          ticks: { color: '#94a3b8' }
+        }
       }
     }
   });
