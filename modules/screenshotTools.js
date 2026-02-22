@@ -126,12 +126,13 @@ const ScreenshotTools = (() => {
   }
 
   function captureFullPage() {
-    updateStatus('Capturing full page...');
-    chrome.runtime.sendMessage({ action: 'captureFullPage' }, (response) => {
-      if (response && response.dataUrl) {
+    updateStatus('Capturing visible area (full-page requires scroll-and-stitch)...');
+    chrome.runtime.sendMessage({ action: 'captureVisible' }, (response) => {
+      if (response?.dataUrl) {
         handleCapturedImage(response.dataUrl);
+        updateStatus('Captured visible area. Full-page scroll capture is not yet supported.');
       } else {
-        updateStatus('Failed to capture full page');
+        updateStatus('Failed to capture screenshot');
       }
     });
   }
@@ -229,19 +230,31 @@ const ScreenshotTools = (() => {
   }
 
   function captureSelection(rect) {
-    chrome.runtime.sendMessage({
-      action: 'captureSelection',
-      area: {
-        x: rect.left,
-        y: rect.top,
-        width: rect.width,
-        height: rect.height
-      }
-    }, (response) => {
-      if (response && response.dataUrl) {
-        handleCapturedImage(response.dataUrl);
+    chrome.runtime.sendMessage({ action: 'captureVisible' }, (response) => {
+      if (!response?.dataUrl) {
+        updateStatus('Failed to capture screenshot');
         show();
+        return;
       }
+
+      const dpr = window.devicePixelRatio || 1;
+      const img = new Image();
+      img.onload = () => {
+        const cropCanvas = document.createElement('canvas');
+        cropCanvas.width = rect.width * dpr;
+        cropCanvas.height = rect.height * dpr;
+        const ctx = cropCanvas.getContext('2d');
+        ctx.drawImage(
+          img,
+          rect.left * dpr, rect.top * dpr,
+          rect.width * dpr, rect.height * dpr,
+          0, 0,
+          rect.width * dpr, rect.height * dpr
+        );
+        handleCapturedImage(cropCanvas.toDataURL('image/png'));
+        show();
+      };
+      img.src = response.dataUrl;
     });
   }
 
