@@ -176,7 +176,7 @@
           <button class="gub-note-btn" data-act="delete" title="Delete">✕</button>
         </div>
       </div>
-      ${note.media ? `<div class="gub-note-media">${note.media.type === 'image' ? `<img src="${escapeHtml(note.media.src)}" style="max-width:100%;max-height:120px;border-radius:4px;">` : `<div style="font-size:12px;color:var(--ganj-text-muted,#64748b);">🎥 ${escapeHtml(note.media.src?.substring(0, 60) || 'Video')}</div>`}</div>` : ''}
+      ${note.media ? `<div class="gub-note-media">${note.media.type === 'image' ? `<img src="${escapeHtml(note.media.src)}" alt="">` : `<div class="gub-note-media-video">🎥 ${escapeHtml(note.media.src?.substring(0, 60) || 'Video')}</div>`}</div>` : ''}
       ${note.anchorText ? `<div class="gub-note-anchor" title="Anchored text">📌 <em>${escapeHtml(note.anchorText.substring(0, 60))}${note.anchorText.length > 60 ? '…' : ''}</em></div>` : ''}
       <div class="gub-note-toolbar">
         <button data-fmt="**" title="Bold"><b>B</b></button>
@@ -186,7 +186,7 @@
         <button data-pre="- " title="List">☰</button>
         <button data-pre=">" title="Quote">❝</button>
         <button data-link title="Link">🔗</button>
-        <span style="flex:1;"></span>
+        <span class="gub-toolbar-spacer"></span>
         ${buildColorDots(accentColor)}
       </div>
       <textarea class="gub-note-editor" spellcheck="false" placeholder="Write markdown...">${escapeHtml(note.content || '')}</textarea>
