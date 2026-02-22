@@ -101,8 +101,8 @@ const MediaScanner = (() => {
     overlay = document.createElement('div');
     overlay.className = 'gub-media-overlay';
     overlay.innerHTML = `
-      <div class="gub-media-panel">
-        <div class="gub-media-header">
+      <div class="gub-media-panel ganj-modal-panel" id="ganj-modal-mediaScanner">
+        <div class="gub-media-header ganj-modal-header">
           <h3>📁 Page Media · <span id="gmCount">${mediaItems.length}</span> items</h3>
           <div style="display:flex;gap:6px;align-items:center;">
             <button id="gmSelectAll" class="btn-small btn-outline">Select All</button>
@@ -126,6 +126,12 @@ const MediaScanner = (() => {
     `;
 
     document.body.appendChild(overlay);
+    const panelEl = overlay.querySelector('.gub-media-panel');
+    if (window.ModalShell && panelEl) {
+      window.ModalShell.restorePosition(panelEl, 'mediaScanner');
+      window.ModalShell.makeDraggable(panelEl, 'mediaScanner');
+      window.ModalShell.makeResizable(panelEl, 'mediaScanner');
+    }
 
     overlay.querySelector('.gub-media-close').addEventListener('click', hide);
     overlay.querySelector('#gmSelectAll').addEventListener('click', () => toggleAll(true));

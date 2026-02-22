@@ -20,12 +20,12 @@ const URLRedirector = (() => {
     container = document.createElement('div');
     container.className = 'url-redirector hidden';
     container.innerHTML = `
-      <div class="redirector-panel">
-        <div class="redirector-header">
+      <div class="redirector-panel ganj-modal-panel" id="ganj-modal-redirector">
+        <div class="redirector-header ganj-modal-header">
           <h3>🔄 URL Redirector</h3>
           <button class="redirector-close">✕</button>
         </div>
-        
+        <div class="ganj-modal-body">
         <div class="rule-creator">
           <h4>➕ Add New Rule</h4>
           <div class="rule-form">
@@ -86,10 +86,16 @@ const URLRedirector = (() => {
           <h4>🛡️ Loop Protection</h4>
           <p>Rules are automatically disabled if they create redirect loops. Always test your patterns first!</p>
         </div>
+        </div>
       </div>
     `;
 
     document.body.appendChild(container);
+    const modalEl = container.querySelector('.redirector-panel');
+    if (window.ModalShell && modalEl) {
+      window.ModalShell.makeDraggable(modalEl, 'redirector');
+      window.ModalShell.makeResizable(modalEl, 'redirector');
+    }
     attachEventListeners();
     updateRulesList();
   }
@@ -430,6 +436,8 @@ const URLRedirector = (() => {
 
   function show() {
     if (!container) createInterface();
+    const modalEl = container.querySelector('.redirector-panel');
+    if (window.ModalShell && modalEl) window.ModalShell.restorePosition(modalEl, 'redirector');
     container.classList.remove('hidden');
     isVisible = true;
   }

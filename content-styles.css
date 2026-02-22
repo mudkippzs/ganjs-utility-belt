@@ -2,6 +2,36 @@
 /* Injected into all pages via manifest content_scripts.css */
 /* Design tokens aligned with styles.css: dark intel/cyber palette + spacing */
 
+/* ===== SHARED MODAL CHROME (draggable, resizable) ===== */
+.ganj-modal-drag-handle,
+.ganj-modal-header {
+  cursor: move !important;
+  user-select: none !important;
+}
+.ganj-modal-body {
+  padding: var(--ganj-space-5) !important;
+  overflow: auto !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+}
+.ganj-modal-resize-handle {
+  position: absolute !important;
+  bottom: 0 !important;
+  right: 0 !important;
+  width: 16px !important;
+  height: 16px !important;
+  cursor: nwse-resize !important;
+  background: linear-gradient(135deg, transparent 50%, var(--ganj-border) 50%) !important;
+  border-radius: 0 0 var(--ganj-radius) 0 !important;
+}
+.ganj-modal-resize-handle:hover {
+  background: linear-gradient(135deg, transparent 50%, var(--ganj-primary) 50%) !important;
+}
+
+.ganj-modal-panel {
+  position: relative;
+}
+
 :root {
   /* Background & surface (dark-first) */
   --ganj-bg: #0c1222;

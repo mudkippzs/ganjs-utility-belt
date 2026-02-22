@@ -21,12 +21,14 @@ const ScreenshotTools = (() => {
   function createUI() {
     if (container) return;
     container = document.createElement('div');
-    container.className = 'screenshot-tools hidden';
+    container.className = 'screenshot-tools hidden ganj-modal-panel';
+    container.id = 'ganj-modal-screenshotTools';
     container.innerHTML = `
-      <div class="tools-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div class="tools-header ganj-modal-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <h3 style="margin:0;font-size:16px;font-weight:600;color:var(--ganj-text,#1e293b);">📸 Screenshot</h3>
         <button class="tools-close">✕</button>
       </div>
+      <div class="ganj-modal-body">
 
       <!-- Capture mode -->
       <div id="ssCapture">
@@ -79,8 +81,13 @@ const ScreenshotTools = (() => {
           <canvas id="ssCanvas" style="max-width:100%;"></canvas>
         </div>
       </div>
+      </div>
     `;
     document.body.appendChild(container);
+    if (window.ModalShell && container) {
+      window.ModalShell.makeDraggable(container, 'screenshotTools');
+      window.ModalShell.makeResizable(container, 'screenshotTools');
+    }
 
     container.querySelector('.tools-close').addEventListener('click', hide);
     container.querySelector('#ssQuality').addEventListener('input', (e) => {
@@ -427,6 +434,7 @@ const ScreenshotTools = (() => {
 
   function show() {
     createUI();
+    if (window.ModalShell && container) window.ModalShell.restorePosition(container, 'screenshotTools');
     container.classList.remove('hidden');
     isVisible = true;
   }

@@ -15,12 +15,12 @@ const QuickActions = (() => {
     container.className = 'quick-actions-hub hidden';
     container.innerHTML = `
       <div class="quick-actions-overlay">
-        <div class="quick-actions-modal">
-          <div class="quick-actions-header">
+        <div class="quick-actions-modal ganj-modal-panel" id="ganj-modal-quickActions">
+          <div class="quick-actions-header ganj-modal-header">
             <h3>🚀 Quick Actions</h3>
             <button class="quick-actions-close">✕</button>
           </div>
-          <div class="quick-actions-grid">
+          <div class="quick-actions-grid ganj-modal-body">
             <button class="action-btn" data-action="reload">🔄 Reload Page</button>
             <button class="action-btn" data-action="clear-cache">🗑️ Clear Cache</button>
             <button class="action-btn" data-action="toggle-js">⚡ Toggle JS</button>
@@ -37,6 +37,11 @@ const QuickActions = (() => {
     `;
 
     document.body.appendChild(container);
+    const modalEl = container.querySelector('.quick-actions-modal');
+    if (window.ModalShell && modalEl) {
+      window.ModalShell.makeDraggable(modalEl, 'quickActions');
+      window.ModalShell.makeResizable(modalEl, 'quickActions');
+    }
     attachEventListeners();
   }
 
@@ -165,6 +170,10 @@ const QuickActions = (() => {
 
   function show() {
     if (!container) createContainer();
+    const modalEl = container.querySelector('.quick-actions-modal');
+    if (window.ModalShell && modalEl) {
+      window.ModalShell.restorePosition(modalEl, 'quickActions');
+    }
     container.classList.remove('hidden');
     isVisible = true;
   }

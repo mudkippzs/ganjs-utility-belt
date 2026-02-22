@@ -16,11 +16,12 @@ const CrossTabSearch = (() => {
     searchContainer.className = 'cross-tab-search hidden';
     searchContainer.innerHTML = `
       <div class="search-overlay">
-        <div class="search-modal">
-          <div class="search-header">
+        <div class="search-modal ganj-modal-panel" id="ganj-modal-crossTabSearch">
+          <div class="search-header ganj-modal-header">
             <h3>🔍 Cross-Tab Search</h3>
             <button class="search-close">✕</button>
           </div>
+          <div class="ganj-modal-body">
           <div class="search-input-container">
             <input type="text" id="tabSearchInput" placeholder="Search across all open tabs..." autocomplete="off">
             <div class="search-options">
@@ -35,11 +36,17 @@ const CrossTabSearch = (() => {
           <div class="search-results" id="searchResults">
             <!-- Results will be populated here -->
           </div>
+          </div>
         </div>
       </div>
     `;
 
     document.body.appendChild(searchContainer);
+    const modalEl = searchContainer.querySelector('.search-modal');
+    if (window.ModalShell && modalEl) {
+      window.ModalShell.makeDraggable(modalEl, 'crossTabSearch');
+      window.ModalShell.makeResizable(modalEl, 'crossTabSearch');
+    }
     attachEventListeners();
   }
 
@@ -231,6 +238,8 @@ const CrossTabSearch = (() => {
 
   function show() {
     if (!searchContainer) createSearchContainer();
+    const modalEl = searchContainer.querySelector('.search-modal');
+    if (window.ModalShell && modalEl) window.ModalShell.restorePosition(modalEl, 'crossTabSearch');
     searchContainer.classList.remove('hidden');
     isVisible = true;
     

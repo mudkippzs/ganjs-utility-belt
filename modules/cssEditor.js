@@ -36,10 +36,11 @@ const CSSEditor = (() => {
     if (container) return;
 
     container = document.createElement('div');
-    container.className = 'css-editor hidden';
+    container.className = 'css-editor hidden ganj-modal-panel';
+    container.id = 'ganj-modal-cssEditor';
     container.innerHTML = `
       <div class="editor-panel">
-        <div class="editor-header">
+        <div class="editor-header ganj-modal-header">
           <h3>🎨 CSS Editor</h3>
           <div class="editor-controls">
             <button id="cssFormat" class="btn-outline">Format</button>
@@ -82,6 +83,10 @@ const CSSEditor = (() => {
     `;
 
     document.body.appendChild(container);
+    if (window.ModalShell && container) {
+      window.ModalShell.makeDraggable(container, 'cssEditor');
+      window.ModalShell.makeResizable(container, 'cssEditor');
+    }
   }
 
   function initAce() {
@@ -296,6 +301,7 @@ const CSSEditor = (() => {
 
   async function show() {
     createEditor();
+    if (window.ModalShell && container) await window.ModalShell.restorePosition(container, 'cssEditor');
     container.classList.remove('hidden');
     isVisible = true;
     if (!aceEditor) {
