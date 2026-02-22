@@ -673,8 +673,8 @@
   line-height: 1.5 !important; resize: vertical !important;
   background: #0f172a !important; color: #e2e8f0 !important;
 }
-.dt-input:focus,
-#jsonInput:focus, #csvInput:focus, #xmlInput:focus, #transformInput:focus {
+.dt-input:focus-visible,
+#jsonInput:focus-visible, #csvInput:focus-visible, #xmlInput:focus-visible, #transformInput:focus-visible {
   border-color: var(--ganj-primary) !important;
   outline: none !important;
   box-shadow: 0 0 0 3px var(--ganj-primary-light) !important;
