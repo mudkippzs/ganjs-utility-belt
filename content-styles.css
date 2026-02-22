@@ -212,7 +212,135 @@
   font-family: var(--ganj-font-sans) !important;
 }
 
-/* ===== STICKY NOTES SPECIFIC ===== */
-.sticky-note {
-  font-family: var(--ganj-font-sans) !important;
+/* ===== STICKY NOTES ===== */
+.gub-sticky-note {
+  position: absolute;
+  min-width: 350px;
+  max-width: 450px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 2px 2px 6px rgba(0,0,0,0.2);
+  resize: both;
+  overflow: hidden;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: all 0.25s ease;
+  font-family: var(--ganj-font-sans);
+}
+.gub-sticky-note.pinned {
+  z-index: 10001;
+  border-color: var(--ganj-primary);
+  box-shadow: 0 0 0 2px var(--ganj-primary), 2px 2px 6px rgba(0,0,0,0.2);
+}
+
+.gub-sticky-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+  cursor: move;
+}
+
+.gub-sticky-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.gub-sticky-btn {
+  cursor: pointer;
+  font-size: 16px;
+  background: none;
+  border: none;
+  padding: 2px;
+  line-height: 1;
+  transition: transform 0.1s ease;
+}
+.gub-sticky-btn:hover { transform: scale(1.15); }
+
+.gub-sticky-delete:hover { color: crimson; }
+
+.gub-sticky-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  padding: 6px 0;
+  gap: 8px;
+}
+
+.gub-color-picker {
+  display: flex;
+  gap: 4px;
+}
+.gub-color-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid #999;
+  cursor: pointer;
+  transition: box-shadow 0.2s ease;
+}
+.gub-color-swatch.active {
+  box-shadow: 0 0 0 2px #000;
+}
+
+.gub-font-picker {
+  display: flex;
+  gap: 6px;
+}
+.gub-font-option {
+  font-size: 12px;
+  cursor: pointer;
+  color: #666;
+}
+.gub-font-option.active {
+  font-weight: bold;
+  color: #000;
+}
+
+.gub-sticky-title {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-weight: bold;
+  font-family: inherit;
+  width: 100%;
+  margin-bottom: 5px;
+  font-size: 14px;
+}
+
+.gub-sticky-textarea {
+  width: 100%;
+  height: 110px;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: inherit;
+  font-size: 14px;
+  display: none;
+}
+
+.gub-sticky-preview {
+  font-family: inherit;
+  font-size: 14px;
+  margin-top: 8px;
+  border-top: 1px solid #ccc;
+  padding-top: 6px;
+  min-height: 80px;
+  cursor: text;
+  line-height: 1.5;
+}
+
+.gub-sticky-footer {
+  font-size: 10px;
+  color: #666;
+  margin-top: auto;
+  padding-top: 6px;
+  text-align: right;
+  user-select: none;
 }
