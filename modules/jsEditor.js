@@ -164,51 +164,104 @@ console.log({
     });
   }
 
-  function executeCode() {
+  function runInPageContext(code) {
+    return new Promise((resolve) => {
+      const resultId = 'gub-js-result-' + Date.now();
+
+      const handler = (event) => {
+        if (event.data?.type === resultId) {
+          window.removeEventListener('message', handler);
+          resolve(event.data);
+        }
+      };
+      window.addEventListener('message', handler);
+
+      const wrappedCode = `
+        (function() {
+          var __result = { type: '${resultId}' };
+          var __origLog = console.log, __origError = console.error, __origWarn = console.warn;
+          var __logs = [];
+          console.log = function() { __logs.push({ t: 'log', v: Array.from(arguments).map(String).join(' ') }); __origLog.apply(console, arguments); };
+          console.error = function() { __logs.push({ t: 'error', v: Array.from(arguments).map(String).join(' ') }); __origError.apply(console, arguments); };
+          console.warn = function() { __logs.push({ t: 'warn', v: Array.from(arguments).map(String).join(' ') }); __origWarn.apply(console, arguments); };
+          try {
+            var __val = (0, eval)(${JSON.stringify(code)});
+            __result.value = __val === undefined ? undefined : String(__val);
+            __result.logs = __logs;
+          } catch(e) {
+            __result.error = e.message;
+            __result.logs = __logs;
+          } finally {
+            console.log = __origLog;
+            console.error = __origError;
+            console.warn = __origWarn;
+          }
+          window.postMessage(__result, '*');
+        })();
+      `;
+
+      const script = document.createElement('script');
+      script.textContent = wrappedCode;
+      document.documentElement.appendChild(script);
+      script.remove();
+
+      setTimeout(() => {
+        window.removeEventListener('message', handler);
+        resolve({ error: 'Execution timed out' });
+      }, 5000);
+    });
+  }
+
+  async function executeCode() {
     const code = editorContainer.querySelector('#jsTextarea').value.trim();
     if (!code) return;
 
-    try {
-      updateStatus('Executing...', 'info');
-      
-      // Clear previous console output for this execution
-      const consoleOutput = editorContainer.querySelector('#consoleOutput');
-      consoleOutput.innerHTML = '<div class="console-welcome">JavaScript Console Output</div>';
-      
-      // Execute the code
-      const result = eval(code);
-      
-      // Add to history
-      addToHistory(code, result, null);
-      
+    updateStatus('Executing...', 'info');
+
+    const consoleOutput = editorContainer.querySelector('#consoleOutput');
+    consoleOutput.innerHTML = '<div class="console-welcome">JavaScript Console Output</div>';
+
+    const result = await runInPageContext(code);
+
+    if (result.logs) {
+      result.logs.forEach(log => {
+        addConsoleOutput(log.t + ':', log.v, log.t);
+      });
+    }
+
+    if (result.error) {
+      addToHistory(code, null, { message: result.error });
+      updateStatus('Execution error: ' + result.error, 'error');
+      addConsoleOutput('Error:', result.error, 'error');
+    } else {
+      addToHistory(code, result.value, null);
       updateStatus('Executed successfully', 'success');
       updateStats();
-      
-      // Show result in console if it's not undefined
-      if (result !== undefined) {
-        addConsoleOutput('Return value:', result, 'result');
+      if (result.value !== undefined) {
+        addConsoleOutput('Return value:', result.value, 'result');
       }
-      
-    } catch (error) {
-      addToHistory(code, null, error);
-      updateStatus('Execution error: ' + error.message, 'error');
-      addConsoleOutput('Error:', error.message, 'error');
     }
   }
 
-  function executeConsoleInput() {
+  async function executeConsoleInput() {
     const input = editorContainer.querySelector('#consoleInput');
     const code = input.value.trim();
     if (!code) return;
 
-    try {
-      const result = eval(code);
-      addConsoleOutput('> ' + code, result, 'input');
-      input.value = '';
-    } catch (error) {
-      addConsoleOutput('> ' + code, error.message, 'error');
-      input.value = '';
+    const result = await runInPageContext(code);
+
+    if (result.logs) {
+      result.logs.forEach(log => {
+        addConsoleOutput(log.t + ':', log.v, log.t);
+      });
     }
+
+    if (result.error) {
+      addConsoleOutput('> ' + code, result.error, 'error');
+    } else {
+      addConsoleOutput('> ' + code, result.value, 'input');
+    }
+    input.value = '';
   }
 
   function addConsoleOutput(label, value, type = 'log') {
@@ -340,12 +393,11 @@ console.log({
   }
 
   function executeFunction(name) {
-    chrome.storage.local.get(['jsFunctions'], (result) => {
+    chrome.storage.local.get(['jsFunctions'], async (result) => {
       const functions = result.jsFunctions || {};
       if (functions[name]) {
         editorContainer.querySelector('#jsTextarea').value = functions[name].code;
-        executeCode();
-        updateStatus('Function executed: ' + name, 'success');
+        await executeCode();
       }
     });
   }
