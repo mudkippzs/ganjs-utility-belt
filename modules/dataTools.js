@@ -208,10 +208,10 @@ const DataTools = (() => {
       transform: transformData,
       transformCopy: () => copyText(el('#dtTransformOut').value),
       genMock: generateMock,
-      genUuid: () => genSimple(Array.from({ length: 10 }, () => crypto.randomUUID())),
-      genNumbers: () => { const n = []; for (let i = 0; i < 20; i++) n.push(Math.floor(Math.random() * 1000)); genSimple(n); },
+      genUuid: () => genSimple(Array.from({ length: 10 }, uuidv4)),
+      genNumbers: () => { const c = parseInt(el('#dtGenCount').value) || 20; const n = []; for (let i = 0; i < c; i++) n.push(Math.floor(Math.random() * 1000)); genSimple(n); },
       genLorem: () => genSimple(generateLorem(3)),
-      genDates: () => { const d = []; for (let i = 0; i < 10; i++) d.push(new Date(Date.now() - Math.random() * 365 * 86400000).toISOString().split('T')[0]); genSimple(d); },
+      genDates: () => { const c = parseInt(el('#dtGenCount').value) || 10; const d = []; for (let i = 0; i < c; i++) d.push(new Date(Date.now() - Math.random() * 365 * 86400000).toISOString().split('T')[0]); genSimple(d); },
       genCopy: () => copyText(el('#dtGenRaw').value),
       genDownload: () => { const v = el('#dtGenRaw').value; if (v) downloadText(v, `data-${Date.now()}.json`, 'application/json'); },
       genSchema: generateFromSchema,
@@ -220,7 +220,10 @@ const DataTools = (() => {
     container.querySelectorAll('[data-act]').forEach(b => {
       b.addEventListener('click', () => {
         const fn = actions[b.dataset.act];
-        if (fn) fn();
+        if (fn) {
+          try { fn(); }
+          catch (e) { toast('Error: ' + e.message, true); }
+        }
       });
     });
 
@@ -430,7 +433,7 @@ const DataTools = (() => {
           else if (type === 'number') row[k] = Math.floor(Math.random() * 1000);
           else if (type === 'boolean') row[k] = Math.random() > 0.5;
           else if (type === 'email') row[k] = `user${Math.floor(Math.random() * 999)}@example.com`;
-          else if (type === 'uuid') row[k] = crypto.randomUUID();
+          else if (type === 'uuid') row[k] = uuidv4();
           else if (type === 'date') row[k] = new Date(Date.now() - Math.random() * 365 * 86400000).toISOString().split('T')[0];
           else row[k] = null;
         }
@@ -448,6 +451,13 @@ const DataTools = (() => {
     if (typeof data === 'string') { tree.innerHTML = `<pre style="margin:0;white-space:pre-wrap;">${escapeHtml(data)}</pre>`; return; }
     tree.innerHTML = buildJsonTree(data);
     bindTreeToggles(tree);
+  }
+
+  // ---- Helpers ----
+
+  function uuidv4() {
+    try { return crypto.randomUUID(); }
+    catch { return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16); }); }
   }
 
   // ---- Data generators ----
