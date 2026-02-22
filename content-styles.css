@@ -291,129 +291,48 @@
   color: var(--ganj-text) !important;
 }
 
-/* ===== CODE EDITOR COMPONENT ===== */
-.gub-code-editor {
+/* ===== ACE EDITOR WRAPPER ===== */
+.gub-ace-wrap {
   flex: 1 !important;
-  display: flex !important;
-  min-height: 0 !important;
-  border: 1px solid var(--ganj-border) !important;
-  border-radius: 8px !important;
-  overflow: hidden !important;
-  background: #0f172a !important;
-}
-
-.gub-code-gutter {
-  width: 48px !important;
-  flex-shrink: 0 !important;
-  padding: 14px 10px 14px 0 !important;
-  text-align: right !important;
-  font-family: var(--ganj-font-mono) !important;
-  font-size: 13px !important;
-  line-height: 1.65 !important;
-  color: #475569 !important;
-  background: #1e293b !important;
-  border-right: 1px solid #334155 !important;
-  user-select: none !important;
-  overflow: hidden !important;
-}
-.gub-code-gutter div {
-  padding-right: 8px !important;
-}
-
-.gub-code-body {
-  flex: 1 !important;
-  position: relative !important;
-  min-height: 0 !important;
-}
-
-.gub-code-highlight {
-  position: absolute !important;
-  top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
-  margin: 0 !important;
-  padding: 14px 16px !important;
-  font-family: var(--ganj-font-mono) !important;
-  font-size: 13px !important;
-  line-height: 1.65 !important;
-  color: #e2e8f0 !important;
-  background: transparent !important;
-  border: none !important;
-  overflow: auto !important;
-  white-space: pre-wrap !important;
-  word-wrap: break-word !important;
-  pointer-events: none !important;
-}
-.gub-code-highlight code {
-  font-family: inherit !important;
-  font-size: inherit !important;
-  line-height: inherit !important;
-  background: none !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  color: inherit !important;
-}
-
-.gub-code-input {
-  position: absolute !important;
-  top: 0 !important; left: 0 !important;
-  width: 100% !important; height: 100% !important;
-  margin: 0 !important;
-  padding: 14px 16px !important;
-  font-family: var(--ganj-font-mono) !important;
-  font-size: 13px !important;
-  line-height: 1.65 !important;
-  color: transparent !important;
-  caret-color: #f8fafc !important;
-  background: transparent !important;
-  border: none !important;
-  outline: none !important;
-  resize: none !important;
-  overflow: auto !important;
-  white-space: pre-wrap !important;
-  word-wrap: break-word !important;
-  tab-size: 2 !important;
-  -moz-tab-size: 2 !important;
-  z-index: 1 !important;
-}
-.gub-code-input::placeholder {
-  color: #475569 !important;
-}
-
-/* Output textarea (extracted CSS, etc.) */
-.gub-output-textarea {
-  flex: 1 !important;
-  width: 100% !important;
   min-height: 200px !important;
-  padding: 14px 16px !important;
+  border-radius: 6px !important;
+  overflow: hidden !important;
+  position: relative !important;
+}
+.gub-ace-wrap .ace_editor {
   font-family: var(--ganj-font-mono) !important;
-  font-size: 13px !important;
-  line-height: 1.5 !important;
-  color: #e2e8f0 !important;
-  background: #0f172a !important;
+  border-radius: 6px !important;
+}
+
+/* ===== SHARED LIST ITEMS ===== */
+.gub-list-item {
+  background: var(--ganj-bg-alt) !important;
   border: 1px solid var(--ganj-border) !important;
   border-radius: 8px !important;
-  resize: vertical !important;
-  outline: none !important;
+  padding: 10px 12px !important;
+  margin-bottom: 8px !important;
 }
-
-/* Syntax highlighting tokens */
-.hl-comment { color: #64748b !important; font-style: italic !important; }
-.hl-string { color: #86efac !important; }
-.hl-number { color: #fcd34d !important; }
-.hl-keyword { color: #c4b5fd !important; font-weight: 500 !important; }
-.hl-property { color: #7dd3fc !important; }
-.hl-selector { color: #fda4af !important; }
-.hl-builtin { color: #67e8f9 !important; }
-.hl-function { color: #93c5fd !important; }
-
-/* Legacy containers (keep for backward compat) */
-.css-textarea-container, .js-textarea-container {
-  position: relative !important;
-  flex: 1 !important;
+.gub-list-item-header {
   display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-bottom: 4px !important;
 }
-.js-line-numbers, .css-line-numbers {
-  display: none !important;
+.gub-list-item-header strong {
+  color: var(--ganj-text) !important;
+  font-size: 13px !important;
 }
+.gub-list-item-preview {
+  font-size: 12px !important;
+  color: var(--ganj-text-muted) !important;
+  font-family: var(--ganj-font-mono) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Legacy containers - hide if still present */
+.js-line-numbers, .css-line-numbers { display: none !important; }
 
 /* Console */
 .console-output {

@@ -58,7 +58,12 @@
     "run_at": "document_idle"
   }],
   "web_accessible_resources": [{
-    "resources": ["icon.png"],
+    "resources": [
+      "icon.png",
+      "libs/ace/*.js",
+      "libs/beautify.js",
+      "libs/beautify-css.js"
+    ],
     "matches": ["<all_urls>"]
   }]
 }

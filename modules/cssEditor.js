@@ -1,12 +1,12 @@
 const CSSEditor = (() => {
-  let editorContainer = null;
+  let container = null;
   let isVisible = false;
+  let aceEditor = null;
   let styleElement = null;
+  let aceLoaded = false;
 
   function init() {
-    createEditor();
     attachKeyboardShortcuts();
-    createStyleElement();
   }
 
   function createStyleElement() {
@@ -16,12 +16,32 @@ const CSSEditor = (() => {
     document.head.appendChild(styleElement);
   }
 
-  function createEditor() {
-    if (editorContainer) return;
+  function loadAce() {
+    if (aceLoaded) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const base = chrome.runtime.getURL('libs/ace/');
+      const script = document.createElement('script');
+      script.src = chrome.runtime.getURL('libs/ace/ace.js');
+      script.onload = () => {
+        ace.config.set('basePath', base);
+        aceLoaded = true;
+        const bs = document.createElement('script');
+        bs.src = chrome.runtime.getURL('libs/beautify-css.js');
+        bs.onload = resolve;
+        bs.onerror = resolve;
+        document.head.appendChild(bs);
+      };
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
 
-    editorContainer = document.createElement('div');
-    editorContainer.className = 'css-editor hidden';
-    editorContainer.innerHTML = `
+  function createEditor() {
+    if (container) return;
+
+    container = document.createElement('div');
+    container.className = 'css-editor hidden';
+    container.innerHTML = `
       <div class="editor-panel">
         <div class="editor-header">
           <h3>🎨 CSS Editor</h3>
@@ -40,22 +60,15 @@ const CSSEditor = (() => {
             <button class="tab-btn" data-tab="snippets">Snippets</button>
           </div>
           <div class="tab-content active" data-tab="live">
-            <div class="gub-code-editor" data-lang="css">
-              <div class="gub-code-gutter"></div>
-              <div class="gub-code-body">
-                <pre class="gub-code-highlight" aria-hidden="true"><code></code></pre>
-                <textarea class="gub-code-input" id="cssTextarea" spellcheck="false"
-                  placeholder="/* Enter your CSS here */"></textarea>
-              </div>
-            </div>
+            <div id="cssAceContainer" class="gub-ace-wrap"></div>
           </div>
           <div class="tab-content" data-tab="extracted">
-            <div class="extracted-controls" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+            <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
               <button id="extractCurrentPage" class="btn-primary">Extract Page CSS</button>
               <button id="extractElement" class="btn-outline">Extract Element</button>
-              <input type="text" id="extractSelector" placeholder="CSS selector (e.g. .header, #main)" style="flex:1;min-width:200px;">
+              <input type="text" id="extractSelector" placeholder="CSS selector (e.g. .header)" style="flex:1;min-width:180px;">
             </div>
-            <textarea id="extractedCss" readonly class="gub-output-textarea" placeholder="Extracted CSS will appear here..."></textarea>
+            <div id="extractedAceContainer" class="gub-ace-wrap"></div>
           </div>
           <div class="tab-content" data-tab="snippets">
             <div style="display:flex;gap:8px;margin-bottom:12px;">
@@ -72,108 +85,130 @@ const CSSEditor = (() => {
       </div>
     `;
 
-    document.body.appendChild(editorContainer);
+    document.body.appendChild(container);
+  }
+
+  function initAce() {
+    aceEditor = ace.edit('cssAceContainer');
+    aceEditor.setTheme('ace/theme/one_dark');
+    aceEditor.session.setMode('ace/mode/css');
+    aceEditor.setOptions({
+      fontSize: '14px',
+      fontFamily: "'SF Mono','Cascadia Code','Fira Code','Monaco','Courier New',monospace",
+      showPrintMargin: false,
+      tabSize: 2,
+      useSoftTabs: true,
+      wrap: true,
+      enableBasicAutocompletion: true,
+      enableLiveAutocompletion: false,
+      placeholder: '/* Enter CSS here */'
+    });
+
+    aceEditor.session.on('change', debounce(() => {
+      livePreview();
+      updateStats();
+    }, 400));
+
+    const extractedEditor = ace.edit('extractedAceContainer');
+    extractedEditor.setTheme('ace/theme/one_dark');
+    extractedEditor.session.setMode('ace/mode/css');
+    extractedEditor.setOptions({ fontSize: '14px', showPrintMargin: false, readOnly: true, wrap: true });
+    container._extractedEditor = extractedEditor;
+
     attachEventListeners();
     loadSnippets();
   }
 
   function attachEventListeners() {
-    const textarea = editorContainer.querySelector('#cssTextarea');
-    const closeBtn = editorContainer.querySelector('.css-editor-close');
+    container.querySelector('.css-editor-close').addEventListener('click', hide);
+    container.querySelector('#cssApply').addEventListener('click', applyCss);
+    container.querySelector('#cssClear').addEventListener('click', clearCss);
+    container.querySelector('#cssExport').addEventListener('click', exportCss);
+    container.querySelector('#cssFormat').addEventListener('click', formatCss);
 
-    closeBtn.addEventListener('click', hide);
-    editorContainer.querySelector('#cssApply').addEventListener('click', applyCss);
-    editorContainer.querySelector('#cssClear').addEventListener('click', clearCss);
-    editorContainer.querySelector('#cssExport').addEventListener('click', exportCss);
-    editorContainer.querySelector('#cssFormat').addEventListener('click', formatCss);
-
-    textarea.addEventListener('input', () => { updateHighlight(textarea); debouncePreview(); });
-    textarea.addEventListener('scroll', () => syncScroll(textarea));
-    textarea.addEventListener('keydown', (e) => handleEditorKeys(e, textarea));
-
-    editorContainer.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => switchTab(e.target.dataset.tab));
+    container.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        switchTab(e.target.dataset.tab);
+        setTimeout(() => {
+          aceEditor?.resize();
+          container._extractedEditor?.resize();
+        }, 50);
+      });
     });
 
-    editorContainer.querySelector('#extractCurrentPage').addEventListener('click', extractCurrentPageCss);
-    editorContainer.querySelector('#extractElement').addEventListener('click', extractElementCss);
-    editorContainer.querySelector('#saveSnippet').addEventListener('click', saveSnippet);
-
-    updateHighlight(textarea);
+    container.querySelector('#extractCurrentPage').addEventListener('click', extractPageCss);
+    container.querySelector('#extractElement').addEventListener('click', extractElementCss);
+    container.querySelector('#saveSnippet').addEventListener('click', saveSnippet);
   }
 
-  function switchTab(tabName) {
-    editorContainer.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tabName));
-    editorContainer.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.dataset.tab === tabName));
+  function switchTab(name) {
+    container.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+    container.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.dataset.tab === name));
   }
 
   function applyCss() {
+    createStyleElement();
     try {
-      styleElement.textContent = editorContainer.querySelector('#cssTextarea').value;
-      updateStatus('CSS applied', 'success');
+      styleElement.textContent = aceEditor.getValue();
+      status('CSS applied', 'success');
       updateStats();
-    } catch (err) {
-      updateStatus('Error: ' + err.message, 'error');
-    }
+    } catch (err) { status('Error: ' + err.message, 'error'); }
   }
 
-  const debouncePreview = debounce(() => {
-    const css = editorContainer.querySelector('#cssTextarea').value;
+  function livePreview() {
+    createStyleElement();
     try {
       let s = document.querySelector('#css-live-preview');
       if (!s) { s = document.createElement('style'); s.id = 'css-live-preview'; document.head.appendChild(s); }
-      s.textContent = css;
-      updateStats();
+      s.textContent = aceEditor.getValue();
     } catch {}
-  }, 400);
+  }
 
   function clearCss() {
+    createStyleElement();
     styleElement.textContent = '';
-    const ta = editorContainer.querySelector('#cssTextarea');
-    ta.value = '';
-    updateHighlight(ta);
+    aceEditor.setValue('', -1);
     const s = document.querySelector('#css-live-preview');
     if (s) s.remove();
-    updateStatus('Cleared', 'info');
+    status('Cleared', 'info');
     updateStats();
   }
 
   function exportCss() {
-    const css = editorContainer.querySelector('#cssTextarea').value;
+    const css = aceEditor.getValue();
     if (!css.trim()) return;
     downloadText(css, `styles-${Date.now()}.css`, 'text/css');
-    updateStatus('Exported', 'success');
+    status('Exported', 'success');
   }
 
   function formatCss() {
-    const ta = editorContainer.querySelector('#cssTextarea');
-    ta.value = prettifyCss(ta.value);
-    updateHighlight(ta);
-    updateStatus('Formatted', 'success');
+    if (typeof css_beautify === 'function') {
+      aceEditor.setValue(css_beautify(aceEditor.getValue(), { indent_size: 2 }), -1);
+    } else {
+      const val = aceEditor.getValue();
+      aceEditor.setValue(val.replace(/\s*\{\s*/g, ' {\n  ').replace(/;\s*/g, ';\n  ').replace(/\s*\}\s*/g, '\n}\n\n').replace(/  \n\}/g, '\n}').replace(/\n{3,}/g, '\n\n').trim(), -1);
+    }
+    status('Formatted', 'success');
   }
 
-  function extractCurrentPageCss() {
+  function extractPageCss() {
     let out = '';
     Array.from(document.styleSheets).forEach((sheet, i) => {
       try {
         const rules = Array.from(sheet.cssRules || []);
-        if (rules.length) {
-          out += `/* Sheet ${i + 1} */\n`;
-          rules.forEach(r => { out += r.cssText + '\n'; });
-          out += '\n';
-        }
+        if (rules.length) { out += `/* Sheet ${i + 1} */\n`; rules.forEach(r => { out += r.cssText + '\n'; }); out += '\n'; }
       } catch { out += `/* Sheet ${i + 1}: cross-origin */\n\n`; }
     });
-    editorContainer.querySelector('#extractedCss').value = out;
+    container._extractedEditor.setValue(out, -1);
     switchTab('extracted');
   }
 
   function extractElementCss() {
-    const sel = editorContainer.querySelector('#extractSelector').value.trim();
-    if (!sel) return updateStatus('Enter a selector', 'error');
+    const sel = container.querySelector('#extractSelector').value.trim();
+    if (!sel) return status('Enter a selector', 'error');
     try {
       const els = document.querySelectorAll(sel);
-      if (!els.length) return updateStatus('No elements found', 'error');
+      if (!els.length) return status('No elements found', 'error');
       let out = '';
       els.forEach((el, i) => {
         const cs = window.getComputedStyle(el);
@@ -184,24 +219,24 @@ const CSSEditor = (() => {
         });
         out += '}\n\n';
       });
-      editorContainer.querySelector('#extractedCss').value = out;
+      container._extractedEditor.setValue(out, -1);
       switchTab('extracted');
-      updateStatus(`Extracted ${els.length} element(s)`, 'success');
-    } catch (err) { updateStatus('Error: ' + err.message, 'error'); }
+      status(`Extracted ${els.length} element(s)`, 'success');
+    } catch (err) { status('Error: ' + err.message, 'error'); }
   }
 
   function saveSnippet() {
-    const css = editorContainer.querySelector('#cssTextarea').value.trim();
-    const name = editorContainer.querySelector('#snippetName').value.trim();
-    if (!css) return updateStatus('No CSS to save', 'error');
-    if (!name) return updateStatus('Enter a name', 'error');
+    const css = aceEditor.getValue().trim();
+    const name = container.querySelector('#snippetName').value.trim();
+    if (!css) return status('No CSS to save', 'error');
+    if (!name) return status('Enter a name', 'error');
     chrome.storage.local.get(['cssSnippets'], (res) => {
       const snippets = res.cssSnippets || {};
       snippets[name] = { css, created: new Date().toISOString() };
       chrome.storage.local.set({ cssSnippets: snippets }, () => {
-        editorContainer.querySelector('#snippetName').value = '';
+        container.querySelector('#snippetName').value = '';
         loadSnippets();
-        updateStatus('Saved', 'success');
+        status('Saved', 'success');
       });
     });
   }
@@ -209,55 +244,49 @@ const CSSEditor = (() => {
   function loadSnippets() {
     chrome.storage.local.get(['cssSnippets'], (res) => {
       const snippets = res.cssSnippets || {};
-      const list = editorContainer.querySelector('#snippetsList');
+      const list = container.querySelector('#snippetsList');
       const entries = Object.entries(snippets);
       if (!entries.length) { list.innerHTML = '<div class="no-data">No saved snippets</div>'; return; }
       list.innerHTML = entries.map(([name, data]) => `
-        <div style="background:var(--ganj-bg-alt,#f8fafc);border:1px solid var(--ganj-border,#e2e8f0);border-radius:8px;padding:10px;margin-bottom:8px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-            <strong style="color:var(--ganj-text,#1e293b);">${escapeHtml(name)}</strong>
+        <div class="gub-list-item">
+          <div class="gub-list-item-header">
+            <strong>${escapeHtml(name)}</strong>
             <div style="display:flex;gap:4px;">
               <button class="btn-small btn-primary" data-snippet-load="${escapeHtml(name)}">Load</button>
               <button class="btn-small btn-danger" data-snippet-del="${escapeHtml(name)}">Del</button>
             </div>
           </div>
-          <div style="font-size:12px;color:var(--ganj-text-muted,#64748b);font-family:var(--ganj-font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(data.css.substring(0, 80))}</div>
+          <div class="gub-list-item-preview">${escapeHtml(data.css.substring(0, 80))}</div>
         </div>
       `).join('');
-      list.querySelectorAll('[data-snippet-load]').forEach(b => b.onclick = () => loadSnippet(b.dataset.snippetLoad));
-      list.querySelectorAll('[data-snippet-del]').forEach(b => b.onclick = () => deleteSnippet(b.dataset.snippetDel));
+      list.querySelectorAll('[data-snippet-load]').forEach(b => b.onclick = () => {
+        chrome.storage.local.get(['cssSnippets'], r => {
+          if (r.cssSnippets?.[b.dataset.snippetLoad]) {
+            aceEditor.setValue(r.cssSnippets[b.dataset.snippetLoad].css, -1);
+            switchTab('live');
+          }
+        });
+      });
+      list.querySelectorAll('[data-snippet-del]').forEach(b => b.onclick = () => {
+        chrome.storage.local.get(['cssSnippets'], r => {
+          const s = r.cssSnippets || {};
+          delete s[b.dataset.snippetDel];
+          chrome.storage.local.set({ cssSnippets: s }, loadSnippets);
+        });
+      });
     });
   }
 
-  function loadSnippet(name) {
-    chrome.storage.local.get(['cssSnippets'], (res) => {
-      if (res.cssSnippets?.[name]) {
-        const ta = editorContainer.querySelector('#cssTextarea');
-        ta.value = res.cssSnippets[name].css;
-        updateHighlight(ta);
-        switchTab('live');
-      }
-    });
-  }
-
-  function deleteSnippet(name) {
-    chrome.storage.local.get(['cssSnippets'], (res) => {
-      const s = res.cssSnippets || {};
-      delete s[name];
-      chrome.storage.local.set({ cssSnippets: s }, loadSnippets);
-    });
-  }
-
-  function updateStatus(msg, type = 'info') {
-    const el = editorContainer.querySelector('#cssStatus');
-    el.textContent = msg;
-    el.className = `status-${type}`;
+  function status(msg, type = 'info') {
+    const el = container.querySelector('#cssStatus');
+    if (el) { el.textContent = msg; el.className = `status-${type}`; }
   }
 
   function updateStats() {
-    const css = editorContainer.querySelector('#cssTextarea').value;
+    const css = aceEditor?.getValue() || '';
     const n = (css.match(/\{[^}]*\}/g) || []).length;
-    editorContainer.querySelector('#cssStats').textContent = `${n} rule${n !== 1 ? 's' : ''}`;
+    const el = container.querySelector('#cssStats');
+    if (el) el.textContent = `${n} rule${n !== 1 ? 's' : ''}`;
   }
 
   function attachKeyboardShortcuts() {
@@ -267,15 +296,22 @@ const CSSEditor = (() => {
     });
   }
 
-  function show() {
-    if (!editorContainer) createEditor();
-    editorContainer.classList.remove('hidden');
+  async function show() {
+    createEditor();
+    container.classList.remove('hidden');
     isVisible = true;
-    setTimeout(() => editorContainer.querySelector('#cssTextarea').focus(), 50);
+    if (!aceLoaded) {
+      status('Loading editor...');
+      await loadAce();
+      initAce();
+      status('Ready');
+    }
+    setTimeout(() => aceEditor?.resize(), 50);
+    aceEditor?.focus();
   }
 
   function hide() {
-    if (editorContainer) editorContainer.classList.add('hidden');
+    if (container) container.classList.add('hidden');
     isVisible = false;
   }
 
@@ -283,106 +319,6 @@ const CSSEditor = (() => {
 
   return { init, show, hide, toggle };
 })();
-
-// --- Shared editor utilities ---
-
-function highlightCSS(code) {
-  return code
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="hl-comment">$1</span>')
-    .replace(/(["'])((?:(?!\1)[^\\]|\\.)*)(\1)/g, '<span class="hl-string">$1$2$3</span>')
-    .replace(/([.#][\w-]+)/g, '<span class="hl-selector">$1</span>')
-    .replace(/\b(\d+(?:\.\d+)?)(px|em|rem|%|vh|vw|s|ms|deg|fr)?\b/g, '<span class="hl-number">$1$2</span>')
-    .replace(/([\{;])\s*([\w-]+)\s*:/g, '$1 <span class="hl-property">$2</span>:')
-    .replace(/(!important)/g, '<span class="hl-keyword">$1</span>');
-}
-
-function highlightJS(code) {
-  const keywords = 'const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|new|this|class|extends|import|export|default|from|try|catch|finally|throw|typeof|instanceof|in|of|async|await|yield|null|undefined|true|false|void|delete';
-  return code
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/(\/\/[^\n]*)/g, '<span class="hl-comment">$1</span>')
-    .replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="hl-comment">$1</span>')
-    .replace(/(["'`])((?:(?!\1)[^\\]|\\.)*)(\1)/g, '<span class="hl-string">$1$2$3</span>')
-    .replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="hl-number">$1</span>')
-    .replace(new RegExp(`\\b(${keywords})\\b`, 'g'), '<span class="hl-keyword">$1</span>')
-    .replace(/\b(document|window|console|Math|JSON|Array|Object|String|Number|Promise|Error|RegExp|Date|Map|Set)\b/g, '<span class="hl-builtin">$1</span>')
-    .replace(/\b(\w+)\s*\(/g, '<span class="hl-function">$1</span>(');
-}
-
-function updateHighlight(textarea) {
-  const editor = textarea.closest('.gub-code-editor');
-  if (!editor) return;
-  const code = textarea.value;
-  const lang = editor.dataset.lang;
-  const codeEl = editor.querySelector('.gub-code-highlight code');
-  const gutter = editor.querySelector('.gub-code-gutter');
-
-  codeEl.innerHTML = (lang === 'css' ? highlightCSS(code) : highlightJS(code)) + '\n';
-
-  const lines = code.split('\n').length;
-  gutter.innerHTML = Array.from({ length: lines }, (_, i) => `<div>${i + 1}</div>`).join('');
-}
-
-function syncScroll(textarea) {
-  const editor = textarea.closest('.gub-code-editor');
-  if (!editor) return;
-  const pre = editor.querySelector('.gub-code-highlight');
-  const gutter = editor.querySelector('.gub-code-gutter');
-  pre.scrollTop = textarea.scrollTop;
-  pre.scrollLeft = textarea.scrollLeft;
-  gutter.scrollTop = textarea.scrollTop;
-}
-
-function handleEditorKeys(e, textarea) {
-  if (e.key === 'Tab') {
-    e.preventDefault();
-    const s = textarea.selectionStart, end = textarea.selectionEnd;
-    textarea.value = textarea.value.substring(0, s) + '  ' + textarea.value.substring(end);
-    textarea.selectionStart = textarea.selectionEnd = s + 2;
-    updateHighlight(textarea);
-  }
-}
-
-function prettifyCss(css) {
-  return css
-    .replace(/\s*\{\s*/g, ' {\n  ')
-    .replace(/\s*;\s*/g, ';\n  ')
-    .replace(/\s*\}\s*/g, '\n}\n\n')
-    .replace(/  \n\}/g, '\n}')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-function prettifyJs(code) {
-  let indent = 0;
-  return code.split('\n').map(line => {
-    const trimmed = line.trim();
-    if (!trimmed) return '';
-    if (trimmed.startsWith('}') || trimmed.startsWith(']') || trimmed.startsWith(')')) indent = Math.max(0, indent - 1);
-    const result = '  '.repeat(indent) + trimmed;
-    if (trimmed.endsWith('{') || trimmed.endsWith('[') || trimmed.endsWith('(')) indent++;
-    return result;
-  }).join('\n').replace(/\n{3,}/g, '\n\n').trim();
-}
-
-function downloadText(text, filename, type) {
-  const url = URL.createObjectURL(new Blob([text], { type }));
-  const a = document.createElement('a');
-  a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
-}
-
-function escapeHtml(text) {
-  const d = document.createElement('div');
-  d.textContent = text;
-  return d.innerHTML;
-}
-
-function debounce(fn, ms) {
-  let t;
-  return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
-}
 
 window.CSSEditor = CSSEditor;
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', CSSEditor.init);

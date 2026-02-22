@@ -38,6 +38,24 @@ const GUB = {
   TAB_GROUP_COLORS: ['grey', 'blue', 'red', 'green', 'yellow', 'pink', 'purple', 'cyan']
 };
 
+function escapeHtml(text) {
+  const d = document.createElement('div');
+  d.textContent = text;
+  return d.innerHTML;
+}
+
+function downloadText(text, filename, type) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function debounce(fn, ms) {
+  let t;
+  return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
+}
+
 if (typeof window !== 'undefined') {
   window.GUB = GUB;
 }
