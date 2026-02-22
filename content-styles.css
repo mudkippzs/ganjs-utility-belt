@@ -573,18 +573,22 @@
 .json-controls, .csv-controls, .xml-controls { display: flex !important; gap: 10px !important; margin-bottom: 12px !important; flex-wrap: wrap !important; }
 .json-controls label, .csv-controls label, .xml-controls label { display: flex !important; align-items: center !important; gap: 6px !important; font-size: 13px !important; color: var(--ganj-text-secondary) !important; cursor: pointer !important; }
 
+.dt-input,
 #jsonInput, #csvInput, #xmlInput, #transformInput, #transformOutput, #generatedOutput, #csvJsonOutput, #xmlConversionOutput {
-  width: 100% !important; height: 200px !important; padding: 12px 14px !important;
+  width: 100% !important; height: 180px !important; padding: 12px 14px !important;
   border: 1px solid var(--ganj-border) !important; border-radius: 8px !important;
   font-family: var(--ganj-font-mono) !important; font-size: 13px !important;
   line-height: 1.5 !important; resize: vertical !important;
-  background: var(--ganj-bg) !important; color: var(--ganj-text) !important;
+  background: #0f172a !important; color: #e2e8f0 !important;
 }
+.dt-input:focus,
 #jsonInput:focus, #csvInput:focus, #xmlInput:focus, #transformInput:focus {
   border-color: var(--ganj-primary) !important;
   outline: none !important;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1) !important;
 }
+.dt-input::placeholder { color: #475569 !important; }
+.dt-info { font-size: 12px !important; color: var(--ganj-text-muted) !important; margin-top: 6px !important; }
 
 .json-info, .csv-stats { display: flex !important; gap: 16px !important; margin-top: 8px !important; font-size: 12px !important; color: var(--ganj-text-muted) !important; }
 .json-tree, .xml-tree {

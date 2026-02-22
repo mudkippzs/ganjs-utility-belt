@@ -1,25 +1,16 @@
-// Data Tools - Data processing and transformation utilities
 const DataTools = (() => {
   let container = null;
   let isVisible = false;
 
   function init() {
-    createInterface();
-    setupKeyboardShortcut();
-  }
-
-  function setupKeyboardShortcut() {
     document.addEventListener('keydown', (e) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'D') {
-        e.preventDefault();
-        toggle();
-      }
+      if (e.ctrlKey && e.shiftKey && e.key === 'D') { e.preventDefault(); toggle(); }
+      if (e.key === 'Escape' && isVisible) hide();
     });
   }
 
-  function createInterface() {
+  function createUI() {
     if (container) return;
-
     container = document.createElement('div');
     container.className = 'ganj-ext-data-tools hidden';
     container.innerHTML = `
@@ -31,1700 +22,568 @@ const DataTools = (() => {
             <button class="data-tools-close">✕</button>
           </div>
         </div>
-        
         <div class="data-tools-tabs">
-          <button class="data-tab-btn active" data-tab="json">📄 JSON</button>
-          <button class="data-tab-btn" data-tab="csv">📊 CSV</button>
-          <button class="data-tab-btn" data-tab="xml">🏷️ XML</button>
-          <button class="data-tab-btn" data-tab="transform">🔄 Transform</button>
-          <button class="data-tab-btn" data-tab="generate">🎲 Generate</button>
+          <button class="data-tab-btn active" data-tab="json">JSON</button>
+          <button class="data-tab-btn" data-tab="csv">CSV</button>
+          <button class="data-tab-btn" data-tab="xml">XML</button>
+          <button class="data-tab-btn" data-tab="transform">Transform</button>
+          <button class="data-tab-btn" data-tab="generate">Generate</button>
         </div>
-        
         <div class="data-tools-content">
-          <!-- JSON Tab -->
+
+          <!-- JSON -->
           <div class="data-tab-content active" data-tab="json">
             <div class="tool-section">
-              <h4>📝 JSON Editor & Validator</h4>
-              <div class="json-controls">
-                <button onclick="window.DataTools.formatJSON()" class="btn-primary">Format</button>
-                <button onclick="window.DataTools.minifyJSON()" class="btn-outline">Minify</button>
-                <button onclick="window.DataTools.validateJSON()" class="btn-outline">Validate</button>
-                <button onclick="window.DataTools.loadSampleJSON()" class="btn-outline">Sample</button>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+                <button class="btn-primary" data-act="jsonFormat">Format</button>
+                <button class="btn-outline" data-act="jsonMinify">Minify</button>
+                <button class="btn-outline" data-act="jsonValidate">Validate</button>
+                <button class="btn-outline" data-act="jsonSample">Sample</button>
+                <button class="btn-outline" data-act="jsonCopy">Copy</button>
               </div>
-              <textarea id="jsonInput" placeholder='{"key": "value", "array": [1, 2, 3]}'></textarea>
-              <div class="json-info" id="jsonInfo">
-                <span>Lines: 0</span>
-                <span>Characters: 0</span>
-                <span>Size: 0 bytes</span>
+              <textarea id="dtJsonInput" class="dt-input" placeholder='{"key": "value", "array": [1, 2, 3]}'></textarea>
+              <div class="dt-info" id="dtJsonInfo">Lines: 0 · Chars: 0</div>
+            </div>
+            <div class="tool-section">
+              <h4>🔍 Path Query</h4>
+              <div style="display:flex;gap:6px;">
+                <input type="text" id="dtJsonPath" placeholder="$.users[0].name" style="flex:1;">
+                <button class="btn-primary btn-small" data-act="jsonQuery">Query</button>
               </div>
+              <div id="dtJsonPathResult"></div>
             </div>
-            
             <div class="tool-section">
-              <h4>🔍 JSON Path Query</h4>
-              <input type="text" id="jsonPath" placeholder="$.users[0].name">
-              <button onclick="window.DataTools.queryJSONPath()" class="btn-primary">Query</button>
-              <div id="jsonPathResult"></div>
-            </div>
-            
-            <div class="tool-section">
-              <h4>🌳 JSON Tree View</h4>
-              <div id="jsonTree"></div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <h4 style="margin:0!important;">🌳 Tree View</h4>
+                <button class="btn-small btn-outline" data-act="jsonTreeRefresh">Refresh</button>
+              </div>
+              <div id="dtJsonTree" class="nt-json-tree" style="min-height:60px;"></div>
             </div>
           </div>
-          
-          <!-- CSV Tab -->
+
+          <!-- CSV -->
           <div class="data-tab-content" data-tab="csv">
             <div class="tool-section">
-              <h4>📊 CSV Processor</h4>
-              <div class="csv-controls">
-                <button onclick="window.DataTools.parseCSV()" class="btn-primary">Parse</button>
-                <button onclick="window.DataTools.generateCSV()" class="btn-outline">Generate</button>
-                <button onclick="window.DataTools.loadSampleCSV()" class="btn-outline">Sample</button>
-                <label>
-                  Delimiter: 
-                  <select id="csvDelimiter">
-                    <option value=",">,</option>
-                    <option value=";">;</option>
-                    <option value="\t">Tab</option>
-                    <option value="|">|</option>
-                  </select>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;align-items:center;">
+                <button class="btn-primary" data-act="csvParse">Parse</button>
+                <button class="btn-outline" data-act="csvSample">Sample</button>
+                <button class="btn-outline" data-act="csvToJson">→ JSON</button>
+                <button class="btn-outline" data-act="csvCopy">Copy</button>
+                <label style="font-size:12px;margin-left:8px;">
+                  Delim: <select id="dtCsvDelim" style="padding:2px 4px;"><option value=",">,</option><option value=";">;</option><option value="\t">Tab</option><option value="|">|</option></select>
                 </label>
-                <label>
-                  <input type="checkbox" id="csvHeaders" checked> Has Headers
-                </label>
+                <label style="font-size:12px;"><input type="checkbox" id="dtCsvHeaders" checked> Headers</label>
               </div>
-              <textarea id="csvInput" placeholder="name,age,city
-John,25,New York
-Jane,30,Los Angeles"></textarea>
+              <textarea id="dtCsvInput" class="dt-input" placeholder="name,age,city&#10;John,25,New York&#10;Jane,30,LA"></textarea>
             </div>
-            
             <div class="tool-section">
-              <h4>📈 CSV Analysis</h4>
-              <div id="csvStats"></div>
+              <h4>📈 Table View</h4>
+              <div id="dtCsvTable"></div>
             </div>
-            
             <div class="tool-section">
-              <h4>🗂️ CSV Table View</h4>
-              <div id="csvTable"></div>
-            </div>
-            
-            <div class="tool-section">
-              <h4>🔄 CSV to JSON Conversion</h4>
-              <button onclick="window.DataTools.csvToJSON()" class="btn-primary">Convert to JSON</button>
-              <textarea id="csvJsonOutput" readonly></textarea>
+              <h4>→ JSON Output</h4>
+              <div id="dtCsvJsonOut" class="nt-json-tree" style="min-height:40px;"></div>
             </div>
           </div>
-          
-          <!-- XML Tab -->
+
+          <!-- XML -->
           <div class="data-tab-content" data-tab="xml">
             <div class="tool-section">
-              <h4>🏷️ XML Editor & Validator</h4>
-              <div class="xml-controls">
-                <button onclick="window.DataTools.formatXML()" class="btn-primary">Format</button>
-                <button onclick="window.DataTools.minifyXML()" class="btn-outline">Minify</button>
-                <button onclick="window.DataTools.validateXML()" class="btn-outline">Validate</button>
-                <button onclick="window.DataTools.loadSampleXML()" class="btn-outline">Sample</button>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+                <button class="btn-primary" data-act="xmlFormat">Format</button>
+                <button class="btn-outline" data-act="xmlMinify">Minify</button>
+                <button class="btn-outline" data-act="xmlValidate">Validate</button>
+                <button class="btn-outline" data-act="xmlSample">Sample</button>
+                <button class="btn-outline" data-act="xmlToJson">→ JSON</button>
+                <button class="btn-outline" data-act="xmlCopy">Copy</button>
               </div>
-              <textarea id="xmlInput" placeholder="<root><item>value</item></root>"></textarea>
+              <textarea id="dtXmlInput" class="dt-input" placeholder="<root><item>value</item></root>"></textarea>
             </div>
-            
             <div class="tool-section">
-              <h4>🔍 XML Tools</h4>
-              <p style="color: var(--ganj-text-muted, #64748b); font-size: 13px;">Paste XML above to validate, view tree, or convert to JSON.</p>
-            </div>
-            
-            <div class="tool-section">
-              <h4>🌳 XML Tree View</h4>
-              <div id="xmlTree"></div>
-            </div>
-            
-            <div class="tool-section">
-              <h4>🔄 XML Conversions</h4>
-              <button onclick="window.DataTools.xmlToJSON()" class="btn-primary">XML to JSON</button>
-              <button onclick="window.DataTools.jsonToXML()" class="btn-outline">JSON to XML</button>
-              <textarea id="xmlConversionOutput" readonly></textarea>
+              <h4>🌳 Tree / Output</h4>
+              <div id="dtXmlOut" class="nt-json-tree" style="min-height:60px;"></div>
             </div>
           </div>
-          
-          <!-- Transform Tab -->
+
+          <!-- Transform -->
           <div class="data-tab-content" data-tab="transform">
             <div class="tool-section">
-              <h4>🔄 Data Transformation</h4>
-              <div class="transform-grid">
-                <div class="transform-input">
-                  <h5>Input Data</h5>
-                  <select id="inputFormat">
-                    <option value="json">JSON</option>
-                    <option value="csv">CSV</option>
-                    <option value="xml">XML</option>
-                    <option value="yaml">YAML</option>
-                    <option value="text">Text</option>
-                  </select>
-                  <textarea id="transformInput"></textarea>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;align-items:center;">
+                <select id="dtInFmt"><option value="json">JSON</option><option value="csv">CSV</option><option value="xml">XML</option></select>
+                <span>→</span>
+                <select id="dtOutFmt"><option value="json">JSON</option><option value="csv">CSV</option><option value="xml">XML</option><option value="yaml">YAML</option></select>
+                <button class="btn-primary" data-act="transform">Transform</button>
+                <button class="btn-outline" data-act="transformCopy">Copy Output</button>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                <label style="font-size:12px;"><input type="checkbox" id="dtSortKeys"> Sort keys</label>
+                <label style="font-size:12px;"><input type="checkbox" id="dtRemoveEmpty"> Remove empty</label>
+                <label style="font-size:12px;"><input type="checkbox" id="dtFlatten"> Flatten</label>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <div>
+                  <div style="font-size:12px;font-weight:600;margin-bottom:4px;color:var(--ganj-text-secondary,#475569);">Input</div>
+                  <textarea id="dtTransformIn" class="dt-input" style="height:250px;"></textarea>
                 </div>
-                
-                <div class="transform-options">
-                  <h5>Transform Options</h5>
-                  <div class="transform-controls">
-                    <label>
-                      <input type="checkbox" id="sortKeys"> Sort Keys
-                    </label>
-                    <label>
-                      <input type="checkbox" id="removeEmpty"> Remove Empty
-                    </label>
-                    <label>
-                      <input type="checkbox" id="flattenObjects"> Flatten Objects
-                    </label>
-                    <label>
-                      <input type="checkbox" id="normalizeData"> Normalize Data
-                    </label>
-                  </div>
-                  
-                  <div class="filter-section">
-                    <h6>Filters</h6>
-                    <input type="text" id="includeFields" placeholder="Include fields (comma-separated)">
-                    <input type="text" id="excludeFields" placeholder="Exclude fields (comma-separated)">
-                  </div>
-                  
-                  <button onclick="window.DataTools.transformData()" class="btn-primary">Transform</button>
-                </div>
-                
-                <div class="transform-output">
-                  <h5>Output Data</h5>
-                  <select id="outputFormat">
-                    <option value="json">JSON</option>
-                    <option value="csv">CSV</option>
-                    <option value="xml">XML</option>
-                    <option value="yaml">YAML</option>
-                    <option value="table">Table</option>
-                  </select>
-                  <textarea id="transformOutput" readonly></textarea>
+                <div>
+                  <div style="font-size:12px;font-weight:600;margin-bottom:4px;color:var(--ganj-text-secondary,#475569);">Output</div>
+                  <textarea id="dtTransformOut" class="dt-input" readonly style="height:250px;"></textarea>
                 </div>
               </div>
             </div>
-            
-            <div class="tool-section">
-              <h4>🧮 Data Operations</h4>
-              <p style="color: var(--ganj-text-muted, #64748b); font-size: 13px;">Paste data in the input, select a format, and click Transform.</p>
-            </div>
           </div>
-          
-          <!-- Generate Tab -->
+
+          <!-- Generate -->
           <div class="data-tab-content" data-tab="generate">
             <div class="tool-section">
-              <h4>🎲 Data Generator</h4>
-              <div class="generator-grid">
-                <div class="generator-card">
-                  <h5>📊 Mock Data</h5>
-                  <label>Records: <input type="number" id="mockRecords" value="10" min="1" max="1000"></label>
-                  <label>
-                    Type:
-                    <select id="mockType">
-                      <option value="users">Users</option>
-                      <option value="products">Products</option>
-                      <option value="orders">Orders</option>
-                      <option value="logs">Logs</option>
-                      <option value="custom">Custom</option>
-                    </select>
-                  </label>
-                  <button onclick="window.DataTools.generateMockData()" class="btn-primary">Generate</button>
-                </div>
-                
-                <div class="generator-card">
-                  <h5>🔢 Numbers</h5>
-                  <label>Count: <input type="number" id="numberCount" value="10" min="1" max="1000"></label>
-                  <label>Min: <input type="number" id="numberMin" value="1"></label>
-                  <label>Max: <input type="number" id="numberMax" value="100"></label>
-                  <label><input type="checkbox" id="numberDecimals"> Decimals</label>
-                  <button onclick="window.DataTools.generateNumbers()" class="btn-primary">Generate</button>
-                </div>
-                
-                <div class="generator-card">
-                  <h5>📝 Text</h5>
-                  <label>Paragraphs: <input type="number" id="textParagraphs" value="3" min="1" max="20"></label>
-                  <label>
-                    Type:
-                    <select id="textType">
-                      <option value="lorem">Lorem Ipsum</option>
-                      <option value="english">English</option>
-                      <option value="tech">Tech</option>
-                      <option value="names">Names</option>
-                    </select>
-                  </label>
-                  <button onclick="window.DataTools.generateText()" class="btn-primary">Generate</button>
-                </div>
-                
-                <div class="generator-card">
-                  <h5>📅 Dates</h5>
-                  <label>Count: <input type="number" id="dateCount" value="10" min="1" max="100"></label>
-                  <label>Start: <input type="date" id="dateStart"></label>
-                  <label>End: <input type="date" id="dateEnd"></label>
-                  <label>
-                    Format:
-                    <select id="dateFormat">
-                      <option value="iso">ISO (2023-12-25)</option>
-                      <option value="us">US (12/25/2023)</option>
-                      <option value="eu">EU (25/12/2023)</option>
-                      <option value="timestamp">Timestamp</option>
-                    </select>
-                  </label>
-                  <button onclick="window.DataTools.generateDates()" class="btn-primary">Generate</button>
-                </div>
-                
-                <div class="generator-card">
-                  <h5>🎯 UUIDs</h5>
-                  <label>Count: <input type="number" id="uuidCount" value="5" min="1" max="100"></label>
-                  <label>
-                    Version:
-                    <select id="uuidVersion">
-                      <option value="v4">v4 (Random)</option>
-                      <option value="v1">v1 (Timestamp)</option>
-                      <option value="short">Short</option>
-                    </select>
-                  </label>
-                  <button onclick="window.DataTools.generateUUIDs()" class="btn-primary">Generate</button>
-                </div>
-                
-                <div class="generator-card">
-                  <h5>🗂️ Schema</h5>
-                  <textarea id="customSchema" placeholder='{"name": "string", "age": "number", "active": "boolean"}'></textarea>
-                  <label>Records: <input type="number" id="schemaRecords" value="5" min="1" max="100"></label>
-                  <button onclick="window.DataTools.generateFromSchema()" class="btn-primary">Generate</button>
-                </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">
+                <select id="dtGenType">
+                  <option value="users">Users</option><option value="products">Products</option>
+                  <option value="orders">Orders</option><option value="logs">Logs</option>
+                </select>
+                <label style="font-size:12px;">Count: <input type="number" id="dtGenCount" value="10" min="1" max="500" style="width:60px;"></label>
+                <button class="btn-primary" data-act="genMock">Generate</button>
+                <span style="color:var(--ganj-text-muted,#64748b);font-size:12px;">|</span>
+                <button class="btn-outline btn-small" data-act="genUuid">UUIDs</button>
+                <button class="btn-outline btn-small" data-act="genNumbers">Numbers</button>
+                <button class="btn-outline btn-small" data-act="genLorem">Lorem</button>
+                <button class="btn-outline btn-small" data-act="genDates">Dates</button>
+                <span style="color:var(--ganj-text-muted,#64748b);font-size:12px;">|</span>
+                <button class="btn-outline btn-small" data-act="genCopy">Copy</button>
+                <button class="btn-outline btn-small" data-act="genDownload">Download</button>
               </div>
-              
-              <div class="generator-output">
-                <h4>Generated Data</h4>
-                <div class="output-controls">
-                  <button onclick="window.DataTools.copyGeneratedData()" class="btn-outline">Copy</button>
-                  <button onclick="window.DataTools.downloadGeneratedData()" class="btn-outline">Download</button>
-                  <button onclick="window.DataTools.clearGeneratedData()" class="btn-outline">Clear</button>
+              <div id="dtGenTree" class="nt-json-tree" style="min-height:100px;max-height:500px;"></div>
+              <textarea id="dtGenRaw" class="dt-input" readonly style="display:none;"></textarea>
+            </div>
+            <div class="tool-section">
+              <h4>🗂️ Schema Generator</h4>
+              <div style="display:flex;gap:6px;margin-bottom:8px;align-items:flex-end;">
+                <div style="flex:1;">
+                  <div style="font-size:12px;margin-bottom:4px;color:var(--ganj-text-secondary,#475569);">Schema (type: string|number|boolean|email|uuid|date)</div>
+                  <input type="text" id="dtSchemaInput" placeholder='{"name":"string","age":"number","active":"boolean"}' style="width:100%;">
                 </div>
-                <textarea id="generatedOutput" readonly></textarea>
+                <label style="font-size:12px;">×<input type="number" id="dtSchemaCount" value="5" min="1" max="100" style="width:50px;"></label>
+                <button class="btn-primary btn-small" data-act="genSchema">Go</button>
               </div>
             </div>
           </div>
+
         </div>
       </div>
     `;
-
     document.body.appendChild(container);
-    attachEventListeners();
-    setupInputListeners();
+    bindEvents();
   }
 
-  function attachEventListeners() {
+  // ---- Event binding ----
+
+  function bindEvents() {
     container.querySelector('.data-tools-close').addEventListener('click', hide);
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && isVisible) hide();
-    });
-    
-    // Tab switching
-    container.querySelectorAll('.data-tab-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const tabName = e.target.dataset.tab;
-        switchTab(tabName);
+
+    container.querySelectorAll('.data-tab-btn').forEach(b => {
+      b.addEventListener('click', () => {
+        container.querySelectorAll('.data-tab-btn').forEach(x => x.classList.toggle('active', x === b));
+        container.querySelectorAll('.data-tab-content').forEach(c => c.classList.toggle('active', c.dataset.tab === b.dataset.tab));
       });
     });
-  }
 
-  function setupInputListeners() {
-    // JSON input listener for real-time info
-    const jsonInput = container.querySelector('#jsonInput');
-    jsonInput.addEventListener('input', updateJSONInfo);
-    
-    // CSV input listener
-    const csvInput = container.querySelector('#csvInput');
-    csvInput.addEventListener('input', debounce(() => {
-      if (csvInput.value.trim()) {
-        parseCSV();
-      }
-    }, 500));
-    
-    // XML input listener  
-    const xmlInput = container.querySelector('#xmlInput');
-    xmlInput.addEventListener('input', debounce(() => {
-      if (xmlInput.value.trim()) {
-        updateXMLTree();
-      }
-    }, 500));
-  }
-
-  function switchTab(tabName) {
-    // Update tab buttons
-    container.querySelectorAll('.data-tab-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.tab === tabName);
-    });
-    
-    // Update tab content
-    container.querySelectorAll('.data-tab-content').forEach(content => {
-      content.classList.toggle('active', content.dataset.tab === tabName);
-    });
-  }
-
-  // JSON Functions
-  function formatJSON() {
-    const input = container.querySelector('#jsonInput').value.trim();
-    if (!input) return;
-    
-    try {
-      const parsed = JSON.parse(input);
-      const formatted = JSON.stringify(parsed, null, 2);
-      container.querySelector('#jsonInput').value = formatted;
-      updateJSONInfo();
-      updateJSONTree();
-      showSuccess('JSON formatted successfully');
-    } catch (error) {
-      showError('Invalid JSON: ' + error.message);
-    }
-  }
-
-  function minifyJSON() {
-    const input = container.querySelector('#jsonInput').value.trim();
-    if (!input) return;
-    
-    try {
-      const parsed = JSON.parse(input);
-      const minified = JSON.stringify(parsed);
-      container.querySelector('#jsonInput').value = minified;
-      updateJSONInfo();
-      showSuccess('JSON minified successfully');
-    } catch (error) {
-      showError('Invalid JSON: ' + error.message);
-    }
-  }
-
-  function validateJSON() {
-    const input = container.querySelector('#jsonInput').value.trim();
-    if (!input) {
-      showError('Please enter JSON to validate');
-      return;
-    }
-    
-    try {
-      JSON.parse(input);
-      showSuccess('JSON is valid ✅');
-    } catch (error) {
-      showError('Invalid JSON: ' + error.message);
-    }
-  }
-
-  function loadSampleJSON() {
-    const sample = {
-      users: [
-        {
-          id: 1,
-          name: "John Doe",
-          email: "john@example.com",
-          profile: {
-            age: 30,
-            city: "New York",
-            preferences: ["coding", "reading", "gaming"]
-          }
-        },
-        {
-          id: 2,
-          name: "Jane Smith",
-          email: "jane@example.com",
-          profile: {
-            age: 25,
-            city: "Los Angeles",
-            preferences: ["design", "travel", "photography"]
-          }
-        }
-      ],
-      meta: {
-        total: 2,
-        timestamp: new Date().toISOString()
-      }
+    const actions = {
+      jsonFormat: () => jsonOp(v => JSON.stringify(JSON.parse(v), null, 2)),
+      jsonMinify: () => jsonOp(v => JSON.stringify(JSON.parse(v))),
+      jsonValidate: () => { try { JSON.parse(el('#dtJsonInput').value); toast('Valid JSON ✅'); } catch (e) { toast('Invalid: ' + e.message, true); }},
+      jsonSample: () => { el('#dtJsonInput').value = JSON.stringify(SAMPLE_JSON, null, 2); updateJsonInfo(); updateJsonTree(); },
+      jsonCopy: () => copyText(el('#dtJsonInput').value),
+      jsonQuery: queryJsonPath,
+      jsonTreeRefresh: updateJsonTree,
+      csvParse: parseCSV,
+      csvSample: () => { el('#dtCsvInput').value = SAMPLE_CSV; parseCSV(); },
+      csvToJson: csvToJSON,
+      csvCopy: () => copyText(el('#dtCsvInput').value),
+      xmlFormat: () => xmlOp(v => formatXMLString(v)),
+      xmlMinify: () => xmlOp(v => v.replace(/>\s+</g, '><').trim()),
+      xmlValidate: () => { try { validateXML(el('#dtXmlInput').value); toast('Valid XML ✅'); } catch (e) { toast(e.message, true); }},
+      xmlSample: () => { el('#dtXmlInput').value = SAMPLE_XML; },
+      xmlToJson: xmlToJSON,
+      xmlCopy: () => copyText(el('#dtXmlInput').value),
+      transform: transformData,
+      transformCopy: () => copyText(el('#dtTransformOut').value),
+      genMock: generateMock,
+      genUuid: () => genSimple(Array.from({ length: 10 }, () => crypto.randomUUID())),
+      genNumbers: () => { const n = []; for (let i = 0; i < 20; i++) n.push(Math.floor(Math.random() * 1000)); genSimple(n); },
+      genLorem: () => genSimple(generateLorem(3)),
+      genDates: () => { const d = []; for (let i = 0; i < 10; i++) d.push(new Date(Date.now() - Math.random() * 365 * 86400000).toISOString().split('T')[0]); genSimple(d); },
+      genCopy: () => copyText(el('#dtGenRaw').value),
+      genDownload: () => { const v = el('#dtGenRaw').value; if (v) downloadText(v, `data-${Date.now()}.json`, 'application/json'); },
+      genSchema: generateFromSchema,
     };
-    
-    container.querySelector('#jsonInput').value = JSON.stringify(sample, null, 2);
-    updateJSONInfo();
-    updateJSONTree();
+
+    container.querySelectorAll('[data-act]').forEach(b => {
+      b.addEventListener('click', () => {
+        const fn = actions[b.dataset.act];
+        if (fn) fn();
+      });
+    });
+
+    el('#dtJsonInput').addEventListener('input', debounce(() => { updateJsonInfo(); updateJsonTree(); }, 400));
+    el('#dtCsvInput').addEventListener('input', debounce(parseCSV, 500));
   }
 
-  function updateJSONInfo() {
-    const input = container.querySelector('#jsonInput').value;
-    const lines = input.split('\n').length;
-    const chars = input.length;
-    const bytes = new Blob([input]).size;
-    
-    container.querySelector('#jsonInfo').innerHTML = `
-      <span>Lines: ${lines}</span>
-      <span>Characters: ${chars}</span>
-      <span>Size: ${bytes} bytes</span>
-    `;
+  function el(sel) { return container.querySelector(sel); }
+
+  // ---- JSON ----
+
+  function jsonOp(fn) {
+    const ta = el('#dtJsonInput');
+    try { ta.value = fn(ta.value.trim()); updateJsonInfo(); updateJsonTree(); toast('Done ✅'); }
+    catch (e) { toast('Invalid JSON: ' + e.message, true); }
   }
 
-  function queryJSONPath() {
-    const input = container.querySelector('#jsonInput').value.trim();
-    const path = container.querySelector('#jsonPath').value.trim();
-    
-    if (!input || !path) return;
-    
+  function updateJsonInfo() {
+    const v = el('#dtJsonInput').value;
+    el('#dtJsonInfo').textContent = `Lines: ${v.split('\n').length} · Chars: ${v.length} · ${new Blob([v]).size} bytes`;
+  }
+
+  function updateJsonTree() {
+    const v = el('#dtJsonInput').value.trim();
+    const tree = el('#dtJsonTree');
+    if (!v) { tree.innerHTML = '<div class="no-data">Enter JSON above</div>'; return; }
     try {
-      const data = JSON.parse(input);
-      const result = evaluateJSONPath(data, path);
-      container.querySelector('#jsonPathResult').innerHTML = `
-        <div class="query-result">
-          <strong>Query Result:</strong>
-          <pre>${JSON.stringify(result, null, 2)}</pre>
-        </div>
-      `;
-    } catch (error) {
-      container.querySelector('#jsonPathResult').innerHTML = `
-        <div class="query-result error">Error: ${error.message}</div>
-      `;
-    }
+      const data = JSON.parse(v);
+      tree.innerHTML = buildJsonTree(data);
+      bindTreeToggles(tree);
+    } catch { tree.innerHTML = '<div class="no-data" style="color:#f87171;">Invalid JSON</div>'; }
   }
 
-  function updateJSONTree() {
-    const input = container.querySelector('#jsonInput').value.trim();
-    if (!input) {
-      container.querySelector('#jsonTree').innerHTML = '';
-      return;
-    }
-    
+  function queryJsonPath() {
+    const v = el('#dtJsonInput').value.trim();
+    const path = el('#dtJsonPath').value.trim();
+    if (!v || !path) return;
     try {
-      const data = JSON.parse(input);
-      container.querySelector('#jsonTree').innerHTML = generateTreeHTML(data);
-    } catch (error) {
-      container.querySelector('#jsonTree').innerHTML = `<div class="error">Invalid JSON</div>`;
-    }
+      const data = JSON.parse(v);
+      const parts = path.replace(/^\$\.?/, '').split(/\.|\[|\]/).filter(p => p);
+      let cur = data;
+      for (const p of parts) { cur = cur[p.match(/^\d+$/) ? parseInt(p) : p]; if (cur === undefined) break; }
+      const out = el('#dtJsonPathResult');
+      out.className = 'nt-json-tree';
+      out.style.marginTop = '8px';
+      out.innerHTML = buildJsonTree(cur);
+      bindTreeToggles(out);
+    } catch (e) { el('#dtJsonPathResult').innerHTML = `<div class="tool-result error">${escapeHtml(e.message)}</div>`; }
   }
 
-  // CSV Functions
+  // ---- CSV ----
+
   function parseCSV() {
-    const input = container.querySelector('#csvInput').value.trim();
-    if (!input) return;
-    
-    const delimiter = container.querySelector('#csvDelimiter').value;
-    const hasHeaders = container.querySelector('#csvHeaders').checked;
-    
-    try {
-      const parsed = parseCSVData(input, delimiter, hasHeaders);
-      updateCSVStats(parsed);
-      updateCSVTable(parsed);
-      showSuccess('CSV parsed successfully');
-    } catch (error) {
-      showError('CSV parsing error: ' + error.message);
+    const v = el('#dtCsvInput').value.trim();
+    if (!v) return;
+    const delim = el('#dtCsvDelim').value;
+    const hasH = el('#dtCsvHeaders').checked;
+    const lines = v.split('\n');
+    let headers = [];
+    const data = [];
+    if (hasH && lines.length) { headers = lines.shift().split(delim).map(h => h.trim().replace(/^"|"$/g, '')); }
+    for (const line of lines) {
+      const vals = line.split(delim).map(c => c.trim().replace(/^"|"$/g, ''));
+      data.push(hasH ? Object.fromEntries(headers.map((h, i) => [h, vals[i] || ''])) : vals);
     }
-  }
 
-  function generateCSV() {
-    const sample = `name,age,city,department,salary
-John Doe,30,New York,Engineering,75000
-Jane Smith,25,Los Angeles,Design,65000
-Bob Johnson,35,Chicago,Marketing,60000
-Alice Brown,28,Boston,Engineering,80000
-Charlie Wilson,32,Seattle,Sales,55000`;
-    
-    container.querySelector('#csvInput').value = sample;
-    parseCSV();
-  }
-
-  function loadSampleCSV() {
-    generateCSV();
+    // Table
+    const tbl = el('#dtCsvTable');
+    if (!data.length) { tbl.innerHTML = '<div class="no-data">No data</div>'; return; }
+    const cols = hasH ? headers : (data[0] || []).map((_, i) => `Col ${i + 1}`);
+    tbl.innerHTML = `<div style="overflow-x:auto;"><table class="csv-table"><thead><tr>${cols.map(c => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead><tbody>${
+      data.slice(0, 100).map(row => `<tr>${(Array.isArray(row) ? row : Object.values(row)).map(c => `<td>${escapeHtml(String(c))}</td>`).join('')}</tr>`).join('')
+    }</tbody></table>${data.length > 100 ? `<div class="no-data">${data.length - 100} more rows...</div>` : ''}</div>`;
   }
 
   function csvToJSON() {
-    const input = container.querySelector('#csvInput').value.trim();
-    if (!input) return;
-    
-    const delimiter = container.querySelector('#csvDelimiter').value;
-    const hasHeaders = container.querySelector('#csvHeaders').checked;
-    
-    try {
-      const parsed = parseCSVData(input, delimiter, hasHeaders);
-      const json = JSON.stringify(parsed.data, null, 2);
-      container.querySelector('#csvJsonOutput').value = json;
-      showSuccess('CSV converted to JSON');
-    } catch (error) {
-      showError('Conversion error: ' + error.message);
+    const v = el('#dtCsvInput').value.trim();
+    if (!v) return;
+    const delim = el('#dtCsvDelim').value;
+    const hasH = el('#dtCsvHeaders').checked;
+    const lines = v.split('\n');
+    let headers = [];
+    const data = [];
+    if (hasH && lines.length) headers = lines.shift().split(delim).map(h => h.trim().replace(/^"|"$/g, ''));
+    for (const line of lines) {
+      const vals = line.split(delim).map(c => c.trim().replace(/^"|"$/g, ''));
+      data.push(hasH ? Object.fromEntries(headers.map((h, i) => [h, vals[i] || ''])) : vals);
     }
+    const out = el('#dtCsvJsonOut');
+    out.innerHTML = buildJsonTree(data);
+    bindTreeToggles(out);
   }
 
-  // XML Functions
-  function formatXML() {
-    const input = container.querySelector('#xmlInput').value.trim();
-    if (!input) return;
-    
-    try {
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(input, 'text/xml');
-      
-      if (xmlDoc.getElementsByTagName('parsererror').length > 0) {
-        throw new Error('Invalid XML');
-      }
-      
-      const formatted = formatXMLString(input);
-      container.querySelector('#xmlInput').value = formatted;
-      updateXMLTree();
-      showSuccess('XML formatted successfully');
-    } catch (error) {
-      showError('XML formatting error: ' + error.message);
-    }
+  // ---- XML ----
+
+  function xmlOp(fn) {
+    const ta = el('#dtXmlInput');
+    try { validateXML(ta.value.trim()); ta.value = fn(ta.value.trim()); toast('Done ✅'); }
+    catch (e) { toast(e.message, true); }
   }
 
-  function minifyXML() {
-    const input = container.querySelector('#xmlInput').value.trim();
-    if (!input) return;
-    
-    try {
-      const minified = input.replace(/>\s+</g, '><').trim();
-      container.querySelector('#xmlInput').value = minified;
-      showSuccess('XML minified successfully');
-    } catch (error) {
-      showError('XML minification error: ' + error.message);
-    }
-  }
-
-  function validateXML() {
-    const input = container.querySelector('#xmlInput').value.trim();
-    if (!input) return;
-    
-    try {
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(input, 'text/xml');
-      
-      if (xmlDoc.getElementsByTagName('parsererror').length > 0) {
-        throw new Error('Invalid XML structure');
-      }
-      
-      showSuccess('XML is valid ✅');
-    } catch (error) {
-      showError('Invalid XML: ' + error.message);
-    }
-  }
-
-  function loadSampleXML() {
-    const sample = `<?xml version="1.0" encoding="UTF-8"?>
-<catalog>
-  <product id="1">
-    <name>Laptop</name>
-    <price currency="USD">999.99</price>
-    <specs>
-      <processor>Intel i7</processor>
-      <memory>16GB</memory>
-      <storage>512GB SSD</storage>
-    </specs>
-    <tags>
-      <tag>electronics</tag>
-      <tag>computers</tag>
-    </tags>
-  </product>
-  <product id="2">
-    <name>Smartphone</name>
-    <price currency="USD">699.99</price>
-    <specs>
-      <processor>A15 Bionic</processor>
-      <memory>6GB</memory>
-      <storage>128GB</storage>
-    </specs>
-    <tags>
-      <tag>electronics</tag>
-      <tag>mobile</tag>
-    </tags>
-  </product>
-</catalog>`;
-    
-    container.querySelector('#xmlInput').value = sample;
-    updateXMLTree();
-  }
-
-  function updateXMLTree() {
-    const input = container.querySelector('#xmlInput').value.trim();
-    if (!input) {
-      container.querySelector('#xmlTree').innerHTML = '';
-      return;
-    }
-    
-    try {
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(input, 'text/xml');
-      
-      if (xmlDoc.getElementsByTagName('parsererror').length > 0) {
-        throw new Error('Invalid XML');
-      }
-      
-      container.querySelector('#xmlTree').innerHTML = generateXMLTreeHTML(xmlDoc);
-    } catch (error) {
-      container.querySelector('#xmlTree').innerHTML = `<div class="error">Invalid XML</div>`;
-    }
+  function validateXML(str) {
+    const doc = new DOMParser().parseFromString(str, 'text/xml');
+    if (doc.querySelector('parsererror')) throw new Error('Invalid XML');
+    return doc;
   }
 
   function xmlToJSON() {
-    const input = container.querySelector('#xmlInput').value.trim();
-    if (!input) return;
-    
+    const v = el('#dtXmlInput').value.trim();
+    if (!v) return;
     try {
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(input, 'text/xml');
-      const json = xmlToJSONConverter(xmlDoc);
-      container.querySelector('#xmlConversionOutput').value = JSON.stringify(json, null, 2);
-      showSuccess('XML converted to JSON');
-    } catch (error) {
-      showError('Conversion error: ' + error.message);
-    }
+      const doc = validateXML(v);
+      const json = xmlNodeToJson(doc.documentElement);
+      const result = { [doc.documentElement.tagName]: json };
+      const out = el('#dtXmlOut');
+      out.innerHTML = buildJsonTree(result);
+      bindTreeToggles(out);
+    } catch (e) { toast(e.message, true); }
   }
 
-  function jsonToXML() {
-    const input = container.querySelector('#jsonInput').value.trim();
-    if (!input) return;
-    
-    try {
-      const data = JSON.parse(input);
-      const xml = jsonToXMLConverter(data);
-      container.querySelector('#xmlConversionOutput').value = xml;
-      showSuccess('JSON converted to XML');
-    } catch (error) {
-      showError('Conversion error: ' + error.message);
+  function xmlNodeToJson(node) {
+    if (node.nodeType === Node.TEXT_NODE) return node.textContent.trim();
+    if (node.nodeType !== Node.ELEMENT_NODE) return null;
+    const result = {};
+    if (node.attributes.length) {
+      result['@attr'] = {};
+      for (const a of node.attributes) result['@attr'][a.name] = a.value;
     }
-  }
-
-  // Transform Functions
-  function transformData() {
-    const input = container.querySelector('#transformInput').value.trim();
-    const inputFormat = container.querySelector('#inputFormat').value;
-    const outputFormat = container.querySelector('#outputFormat').value;
-    
-    if (!input) return;
-    
-    try {
-      let data = parseInputData(input, inputFormat);
-      data = applyTransformations(data);
-      const output = formatOutputData(data, outputFormat);
-      container.querySelector('#transformOutput').value = output;
-      showSuccess('Data transformed successfully');
-    } catch (error) {
-      showError('Transformation error: ' + error.message);
-    }
-  }
-
-  // Generate Functions
-  function generateMockData() {
-    const count = parseInt(container.querySelector('#mockRecords').value) || 10;
-    const type = container.querySelector('#mockType').value;
-    
-    let data = [];
-    
-    for (let i = 0; i < count; i++) {
-      switch (type) {
-        case 'users':
-          data.push(generateUser(i + 1));
-          break;
-        case 'products':
-          data.push(generateProduct(i + 1));
-          break;
-        case 'orders':
-          data.push(generateOrder(i + 1));
-          break;
-        case 'logs':
-          data.push(generateLogEntry(i + 1));
-          break;
-        default:
-          data.push(generateUser(i + 1));
+    const kids = [...node.childNodes];
+    const textKids = kids.filter(n => n.nodeType === Node.TEXT_NODE).map(n => n.textContent.trim()).filter(Boolean).join(' ');
+    const elKids = kids.filter(n => n.nodeType === Node.ELEMENT_NODE);
+    if (!elKids.length) { if (textKids) result['#text'] = textKids; }
+    else {
+      for (const c of elKids) {
+        const cj = xmlNodeToJson(c);
+        if (result[c.tagName]) { if (!Array.isArray(result[c.tagName])) result[c.tagName] = [result[c.tagName]]; result[c.tagName].push(cj); }
+        else result[c.tagName] = cj;
       }
+      if (textKids) result['#text'] = textKids;
     }
-    
-    container.querySelector('#generatedOutput').value = JSON.stringify(data, null, 2);
-    showSuccess(`Generated ${count} ${type} records`);
-  }
-
-  function generateNumbers() {
-    const count = parseInt(container.querySelector('#numberCount').value) || 10;
-    const min = parseFloat(container.querySelector('#numberMin').value) || 1;
-    const max = parseFloat(container.querySelector('#numberMax').value) || 100;
-    const decimals = container.querySelector('#numberDecimals').checked;
-    
-    const numbers = [];
-    for (let i = 0; i < count; i++) {
-      let num = Math.random() * (max - min) + min;
-      if (!decimals) num = Math.floor(num);
-      numbers.push(num);
-    }
-    
-    container.querySelector('#generatedOutput').value = JSON.stringify(numbers, null, 2);
-    showSuccess(`Generated ${count} numbers`);
-  }
-
-  function generateText() {
-    const paragraphs = parseInt(container.querySelector('#textParagraphs').value) || 3;
-    const type = container.querySelector('#textType').value;
-    
-    let text = '';
-    
-    for (let i = 0; i < paragraphs; i++) {
-      switch (type) {
-        case 'lorem':
-          text += generateLoremParagraph() + '\n\n';
-          break;
-        case 'english':
-          text += generateEnglishParagraph() + '\n\n';
-          break;
-        case 'tech':
-          text += generateTechParagraph() + '\n\n';
-          break;
-        case 'names':
-          text += generateNames(10).join(', ') + '\n\n';
-          break;
-      }
-    }
-    
-    container.querySelector('#generatedOutput').value = text.trim();
-    showSuccess(`Generated ${paragraphs} paragraphs of ${type} text`);
-  }
-
-  function generateDates() {
-    const count = parseInt(container.querySelector('#dateCount').value) || 10;
-    const start = container.querySelector('#dateStart').value;
-    const end = container.querySelector('#dateEnd').value;
-    const format = container.querySelector('#dateFormat').value;
-    
-    const startDate = start ? new Date(start) : new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
-    const endDate = end ? new Date(end) : new Date();
-    
-    const dates = [];
-    for (let i = 0; i < count; i++) {
-      const randomTime = startDate.getTime() + Math.random() * (endDate.getTime() - startDate.getTime());
-      const date = new Date(randomTime);
-      
-      switch (format) {
-        case 'iso':
-          dates.push(date.toISOString().split('T')[0]);
-          break;
-        case 'us':
-          dates.push(date.toLocaleDateString('en-US'));
-          break;
-        case 'eu':
-          dates.push(date.toLocaleDateString('en-GB'));
-          break;
-        case 'timestamp':
-          dates.push(date.getTime());
-          break;
-        default:
-          dates.push(date.toISOString());
-      }
-    }
-    
-    container.querySelector('#generatedOutput').value = JSON.stringify(dates, null, 2);
-    showSuccess(`Generated ${count} dates`);
-  }
-
-  function generateUUIDs() {
-    const count = parseInt(container.querySelector('#uuidCount').value) || 5;
-    const version = container.querySelector('#uuidVersion').value;
-    
-    const uuids = [];
-    for (let i = 0; i < count; i++) {
-      switch (version) {
-        case 'v4':
-          uuids.push(generateUUIDv4());
-          break;
-        case 'v1':
-          uuids.push(generateUUIDv1());
-          break;
-        case 'short':
-          uuids.push(generateShortUUID());
-          break;
-        default:
-          uuids.push(generateUUIDv4());
-      }
-    }
-    
-    container.querySelector('#generatedOutput').value = JSON.stringify(uuids, null, 2);
-    showSuccess(`Generated ${count} UUIDs`);
-  }
-
-  function generateFromSchema() {
-    const schema = container.querySelector('#customSchema').value.trim();
-    const count = parseInt(container.querySelector('#schemaRecords').value) || 5;
-    
-    if (!schema) {
-      showError('Please enter a schema');
-      return;
-    }
-    
-    try {
-      const schemaObj = JSON.parse(schema);
-      const data = [];
-      
-      for (let i = 0; i < count; i++) {
-        data.push(generateFromSchemaObject(schemaObj));
-      }
-      
-      container.querySelector('#generatedOutput').value = JSON.stringify(data, null, 2);
-      showSuccess(`Generated ${count} records from schema`);
-    } catch (error) {
-      showError('Invalid schema: ' + error.message);
-    }
-  }
-
-  function copyGeneratedData() {
-    const output = container.querySelector('#generatedOutput').value;
-    if (!output) return;
-    
-    navigator.clipboard.writeText(output).then(() => {
-      showSuccess('Data copied to clipboard');
-    }).catch(() => {
-      showError('Failed to copy data');
-    });
-  }
-
-  function downloadGeneratedData() {
-    const output = container.querySelector('#generatedOutput').value;
-    if (!output) return;
-    
-    const blob = new Blob([output], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `generated-data-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    
-    showSuccess('Data downloaded');
-  }
-
-  function clearGeneratedData() {
-    container.querySelector('#generatedOutput').value = '';
-  }
-
-  // Helper Functions
-  function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-      const later = () => {
-        clearTimeout(timeout);
-        func(...args);
-      };
-      clearTimeout(timeout);
-      timeout = setTimeout(later, wait);
-    };
-  }
-
-  function evaluateJSONPath(data, path) {
-    // Simple JSONPath implementation
-    if (path === '$') return data;
-    
-    const parts = path.replace(/^\$\.?/, '').split(/\.|\[|\]/).filter(p => p);
-    let current = data;
-    
-    for (const part of parts) {
-      if (part.match(/^\d+$/)) {
-        current = current[parseInt(part)];
-      } else {
-        current = current[part];
-      }
-      
-      if (current === undefined) break;
-    }
-    
-    return current;
-  }
-
-  function generateTreeHTML(obj, depth = 0) {
-    if (obj === null) return '<span class="json-null">null</span>';
-    if (typeof obj === 'boolean') return `<span class="json-boolean">${obj}</span>`;
-    if (typeof obj === 'number') return `<span class="json-number">${obj}</span>`;
-    if (typeof obj === 'string') return `<span class="json-string">"${escapeHtml(obj)}"</span>`;
-    
-    if (Array.isArray(obj)) {
-      if (obj.length === 0) return '<span class="json-array">[]</span>';
-      
-      let html = '<div class="json-array">[<div class="json-indent">';
-      obj.forEach((item, index) => {
-        html += `<div class="json-item">${generateTreeHTML(item, depth + 1)}${index < obj.length - 1 ? ',' : ''}</div>`;
-      });
-      html += '</div>]</div>';
-      return html;
-    }
-    
-    if (typeof obj === 'object') {
-      const keys = Object.keys(obj);
-      if (keys.length === 0) return '<span class="json-object">{}</span>';
-      
-      let html = '<div class="json-object">{<div class="json-indent">';
-      keys.forEach((key, index) => {
-        html += `<div class="json-property"><span class="json-key">"${escapeHtml(key)}"</span>: ${generateTreeHTML(obj[key], depth + 1)}${index < keys.length - 1 ? ',' : ''}</div>`;
-      });
-      html += '</div>}</div>';
-      return html;
-    }
-    
-    return '<span class="json-unknown">unknown</span>';
-  }
-
-  function parseCSVData(input, delimiter, hasHeaders) {
-    const lines = input.trim().split('\n');
-    const data = [];
-    let headers = [];
-    
-    if (hasHeaders && lines.length > 0) {
-      headers = lines[0].split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
-      lines.shift();
-    }
-    
-    for (const line of lines) {
-      const values = line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''));
-      
-      if (hasHeaders) {
-        const row = {};
-        headers.forEach((header, index) => {
-          row[header] = values[index] || '';
-        });
-        data.push(row);
-      } else {
-        data.push(values);
-      }
-    }
-    
-    return { data, headers, rowCount: data.length };
-  }
-
-  function updateCSVStats(parsed) {
-    const stats = {
-      rows: parsed.rowCount,
-      columns: parsed.headers.length || (parsed.data[0] ? parsed.data[0].length : 0),
-      headers: parsed.headers.join(', ') || 'No headers'
-    };
-    
-    container.querySelector('#csvStats').innerHTML = `
-      <div class="stats-grid">
-        <div class="stat-item"><strong>Rows:</strong> ${stats.rows}</div>
-        <div class="stat-item"><strong>Columns:</strong> ${stats.columns}</div>
-        <div class="stat-item"><strong>Headers:</strong> ${stats.headers}</div>
-      </div>
-    `;
-  }
-
-  function updateCSVTable(parsed) {
-    if (parsed.data.length === 0) {
-      container.querySelector('#csvTable').innerHTML = '<div class="no-data">No data</div>';
-      return;
-    }
-    
-    let html = '<table class="csv-table">';
-    
-    // Headers
-    if (parsed.headers.length > 0) {
-      html += '<thead><tr>';
-      parsed.headers.forEach(header => {
-        html += `<th>${escapeHtml(header)}</th>`;
-      });
-      html += '</tr></thead>';
-    }
-    
-    // Data rows (limit to first 100 for performance)
-    html += '<tbody>';
-    const displayData = parsed.data.slice(0, 100);
-    displayData.forEach(row => {
-      html += '<tr>';
-      if (Array.isArray(row)) {
-        row.forEach(cell => {
-          html += `<td>${escapeHtml(cell || '')}</td>`;
-        });
-      } else {
-        Object.values(row).forEach(cell => {
-          html += `<td>${escapeHtml(cell || '')}</td>`;
-        });
-      }
-      html += '</tr>';
-    });
-    html += '</tbody></table>';
-    
-    if (parsed.data.length > 100) {
-      html += `<div class="table-note">Showing first 100 of ${parsed.data.length} rows</div>`;
-    }
-    
-    container.querySelector('#csvTable').innerHTML = html;
+    return result;
   }
 
   function formatXMLString(xml) {
-    const PADDING = ' '.repeat(2);
-    const reg = /(>)(<)(\/*)/g;
-    xml = xml.replace(reg, '$1\r\n$2$3');
-    
-    let formatted = '';
+    xml = xml.replace(/(>)(<)(\/*)/g, '$1\n$2$3');
     let pad = 0;
-    
-    xml.split('\r\n').forEach(line => {
+    return xml.split('\n').map(line => {
       let indent = 0;
-      if (line.match(/.+<\/\w[^>]*>$/)) {
-        indent = 0;
-      } else if (line.match(/^<\/\w/) && pad > 0) {
-        pad -= 1;
-      } else if (line.match(/^<\w[^>]*[^\/]>.*$/)) {
-        indent = 1;
-      } else {
-        indent = 0;
-      }
-      
-      formatted += PADDING.repeat(pad) + line + '\r\n';
+      if (line.match(/.+<\/\w[^>]*>$/)) indent = 0;
+      else if (line.match(/^<\/\w/) && pad > 0) pad--;
+      else if (line.match(/^<\w[^>]*[^\/]>.*$/)) indent = 1;
+      const out = '  '.repeat(pad) + line;
       pad += indent;
-    });
-    
-    return formatted;
+      return out;
+    }).join('\n');
   }
 
-  function generateXMLTreeHTML(xmlDoc) {
-    return generateXMLNodeHTML(xmlDoc.documentElement);
+  // ---- Transform ----
+
+  function transformData() {
+    const inVal = el('#dtTransformIn').value.trim();
+    if (!inVal) return;
+    const inFmt = el('#dtInFmt').value;
+    const outFmt = el('#dtOutFmt').value;
+    try {
+      let data;
+      if (inFmt === 'json') data = JSON.parse(inVal);
+      else if (inFmt === 'csv') { const lines = inVal.split('\n'); const h = lines.shift().split(',').map(s => s.trim()); data = lines.map(l => Object.fromEntries(h.map((k, i) => [k, l.split(',')[i]?.trim() || '']))); }
+      else if (inFmt === 'xml') { const doc = validateXML(inVal); data = { [doc.documentElement.tagName]: xmlNodeToJson(doc.documentElement) }; }
+
+      if (el('#dtRemoveEmpty').checked) data = removeEmpty(data);
+      if (el('#dtSortKeys').checked) data = sortKeys(data);
+      if (el('#dtFlatten').checked) data = flatten(data);
+
+      let out;
+      if (outFmt === 'json') out = JSON.stringify(data, null, 2);
+      else if (outFmt === 'csv') out = toCSV(Array.isArray(data) ? data : [data]);
+      else if (outFmt === 'yaml') out = toYAML(data);
+      else if (outFmt === 'xml') out = toXML(data);
+      else out = JSON.stringify(data, null, 2);
+
+      el('#dtTransformOut').value = out;
+      toast('Transformed ✅');
+    } catch (e) { toast('Error: ' + e.message, true); }
   }
 
-  function generateXMLNodeHTML(node, depth = 0) {
-    if (node.nodeType === Node.TEXT_NODE) {
-      const text = node.textContent.trim();
-      return text ? `<span class="xml-text">${escapeHtml(text)}</span>` : '';
-    }
-    
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      let html = `<div class="xml-element" style="margin-left: ${depth * 20}px">`;
-      html += `<span class="xml-tag">&lt;${node.tagName}`;
-      
-      // Attributes
-      if (node.attributes.length > 0) {
-        for (const attr of node.attributes) {
-          html += ` <span class="xml-attr">${attr.name}="<span class="xml-attr-value">${escapeHtml(attr.value)}</span>"</span>`;
+  // ---- Generate ----
+
+  function generateMock() {
+    const count = Math.min(parseInt(el('#dtGenCount').value) || 10, 500);
+    const type = el('#dtGenType').value;
+    const generators = { users: genUser, products: genProduct, orders: genOrder, logs: genLog };
+    const gen = generators[type] || genUser;
+    const data = Array.from({ length: count }, (_, i) => gen(i + 1));
+    showGenerated(data);
+  }
+
+  function generateFromSchema() {
+    try {
+      const schema = JSON.parse(el('#dtSchemaInput').value);
+      const count = Math.min(parseInt(el('#dtSchemaCount').value) || 5, 100);
+      const data = Array.from({ length: count }, () => {
+        const row = {};
+        for (const [k, t] of Object.entries(schema)) {
+          const type = String(t).toLowerCase();
+          if (type === 'string') row[k] = ['alpha', 'beta', 'gamma', 'delta', 'epsilon'][Math.floor(Math.random() * 5)];
+          else if (type === 'number') row[k] = Math.floor(Math.random() * 1000);
+          else if (type === 'boolean') row[k] = Math.random() > 0.5;
+          else if (type === 'email') row[k] = `user${Math.floor(Math.random() * 999)}@example.com`;
+          else if (type === 'uuid') row[k] = crypto.randomUUID();
+          else if (type === 'date') row[k] = new Date(Date.now() - Math.random() * 365 * 86400000).toISOString().split('T')[0];
+          else row[k] = null;
         }
-      }
-      
-      if (node.childNodes.length === 0) {
-        html += '/&gt;</span></div>';
-      } else {
-        html += '&gt;</span>';
-        
-        // Children
-        for (const child of node.childNodes) {
-          const childHTML = generateXMLNodeHTML(child, depth + 1);
-          if (childHTML) html += childHTML;
-        }
-        
-        html += `<span class="xml-tag" style="margin-left: ${depth * 20}px">&lt;/${node.tagName}&gt;</span></div>`;
-      }
-      
-      return html;
-    }
-    
-    return '';
-  }
-
-  function xmlToJSONConverter(xmlDoc) {
-    function xmlNodeToJSON(node) {
-      if (node.nodeType === Node.TEXT_NODE) {
-        return node.textContent.trim();
-      }
-      
-      if (node.nodeType === Node.ELEMENT_NODE) {
-        const result = {};
-        
-        // Add attributes
-        if (node.attributes.length > 0) {
-          result['@attributes'] = {};
-          for (const attr of node.attributes) {
-            result['@attributes'][attr.name] = attr.value;
-          }
-        }
-        
-        // Add children
-        const children = Array.from(node.childNodes);
-        const textContent = children.filter(n => n.nodeType === Node.TEXT_NODE)
-                                  .map(n => n.textContent.trim())
-                                  .filter(t => t)
-                                  .join(' ');
-        
-        const elementChildren = children.filter(n => n.nodeType === Node.ELEMENT_NODE);
-        
-        if (elementChildren.length === 0) {
-          if (textContent) {
-            result['#text'] = textContent;
-          }
-        } else {
-          elementChildren.forEach(child => {
-            const childName = child.tagName;
-            const childJSON = xmlNodeToJSON(child);
-            
-            if (result[childName]) {
-              if (!Array.isArray(result[childName])) {
-                result[childName] = [result[childName]];
-              }
-              result[childName].push(childJSON);
-            } else {
-              result[childName] = childJSON;
-            }
-          });
-          
-          if (textContent) {
-            result['#text'] = textContent;
-          }
-        }
-        
-        return result;
-      }
-      
-      return null;
-    }
-    
-    return { [xmlDoc.documentElement.tagName]: xmlNodeToJSON(xmlDoc.documentElement) };
-  }
-
-  function jsonToXMLConverter(data, rootName = 'root') {
-    function jsonToXMLRecursive(obj, tagName) {
-      if (obj === null || obj === undefined) {
-        return `<${tagName}></${tagName}>`;
-      }
-      
-      if (typeof obj === 'string' || typeof obj === 'number' || typeof obj === 'boolean') {
-        return `<${tagName}>${escapeXML(obj.toString())}</${tagName}>`;
-      }
-      
-      if (Array.isArray(obj)) {
-        return obj.map(item => jsonToXMLRecursive(item, tagName)).join('');
-      }
-      
-      if (typeof obj === 'object') {
-        let xml = `<${tagName}>`;
-        
-        Object.entries(obj).forEach(([key, value]) => {
-          if (key === '@attributes') {
-            // Handle attributes (would need to be processed at parent level)
-            return;
-          }
-          
-          if (key === '#text') {
-            xml += escapeXML(value.toString());
-          } else {
-            xml += jsonToXMLRecursive(value, key);
-          }
-        });
-        
-        xml += `</${tagName}>`;
-        return xml;
-      }
-      
-      return '';
-    }
-    
-    return `<?xml version="1.0" encoding="UTF-8"?>\n${jsonToXMLRecursive(data, rootName)}`;
-  }
-
-  function escapeXML(text) {
-    return text.replace(/&/g, '&amp;')
-               .replace(/</g, '&lt;')
-               .replace(/>/g, '&gt;')
-               .replace(/"/g, '&quot;')
-               .replace(/'/g, '&#39;');
-  }
-
-  function parseInputData(input, format) {
-    switch (format) {
-      case 'json':
-        return JSON.parse(input);
-      case 'csv':
-        return parseCSVData(input, ',', true).data;
-      case 'xml':
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(input, 'text/xml');
-        return xmlToJSONConverter(xmlDoc);
-      case 'yaml':
-        // Basic YAML parsing (limited)
-        return parseBasicYAML(input);
-      case 'text':
-        return { text: input };
-      default:
-        return {};
-    }
-  }
-
-  function applyTransformations(data) {
-    const sortKeys = container.querySelector('#sortKeys').checked;
-    const removeEmpty = container.querySelector('#removeEmpty').checked;
-    const flattenObjects = container.querySelector('#flattenObjects').checked;
-    const normalizeData = container.querySelector('#normalizeData').checked;
-    
-    let result = data;
-    
-    if (removeEmpty) {
-      result = removeEmptyValues(result);
-    }
-    
-    if (sortKeys) {
-      result = sortObjectKeys(result);
-    }
-    
-    if (flattenObjects) {
-      result = flattenObject(result);
-    }
-    
-    if (normalizeData) {
-      result = normalizeDataValues(result);
-    }
-    
-    return result;
-  }
-
-  function formatOutputData(data, format) {
-    switch (format) {
-      case 'json':
-        return JSON.stringify(data, null, 2);
-      case 'csv':
-        return arrayToCSV(Array.isArray(data) ? data : [data]);
-      case 'xml':
-        return jsonToXMLConverter(data);
-      case 'yaml':
-        return jsonToBasicYAML(data);
-      case 'table':
-        return generateTableHTML(data);
-      default:
-        return JSON.stringify(data, null, 2);
-    }
-  }
-
-  // Generator helper functions
-  function generateUser(id) {
-    const firstNames = ['John', 'Jane', 'Bob', 'Alice', 'Charlie', 'Diana', 'Frank', 'Grace'];
-    const lastNames = ['Doe', 'Smith', 'Johnson', 'Brown', 'Wilson', 'Miller', 'Davis', 'Garcia'];
-    const cities = ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix', 'Philadelphia'];
-    
-    const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
-    const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
-    
-    return {
-      id: id,
-      name: `${firstName} ${lastName}`,
-      email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@example.com`,
-      age: Math.floor(Math.random() * 50) + 18,
-      city: cities[Math.floor(Math.random() * cities.length)],
-      active: Math.random() > 0.3,
-      joinDate: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString()
-    };
-  }
-
-  function generateProduct(id) {
-    const products = ['Laptop', 'Smartphone', 'Tablet', 'Headphones', 'Keyboard', 'Mouse'];
-    const brands = ['Apple', 'Samsung', 'Microsoft', 'Sony', 'Logitech', 'Dell'];
-    const categories = ['Electronics', 'Computers', 'Accessories', 'Mobile', 'Gaming'];
-    
-    return {
-      id: id,
-      name: products[Math.floor(Math.random() * products.length)],
-      brand: brands[Math.floor(Math.random() * brands.length)],
-      category: categories[Math.floor(Math.random() * categories.length)],
-      price: Math.floor(Math.random() * 1000) + 50,
-      inStock: Math.random() > 0.2,
-      rating: Math.round((Math.random() * 4 + 1) * 10) / 10
-    };
-  }
-
-  function generateOrder(id) {
-    return {
-      id: id,
-      customerId: Math.floor(Math.random() * 100) + 1,
-      products: Array.from({ length: Math.floor(Math.random() * 5) + 1 }, () => ({
-        productId: Math.floor(Math.random() * 50) + 1,
-        quantity: Math.floor(Math.random() * 3) + 1,
-        price: Math.floor(Math.random() * 500) + 25
-      })),
-      total: Math.floor(Math.random() * 1000) + 50,
-      status: ['pending', 'processing', 'shipped', 'delivered'][Math.floor(Math.random() * 4)],
-      orderDate: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString()
-    };
-  }
-
-  function generateLogEntry(id) {
-    const levels = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
-    const messages = [
-      'User authentication successful',
-      'Database connection established',
-      'File not found',
-      'Invalid input parameter',
-      'Request processing completed',
-      'Cache invalidated',
-      'Backup created successfully'
-    ];
-    
-    return {
-      id: id,
-      timestamp: new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000).toISOString(),
-      level: levels[Math.floor(Math.random() * levels.length)],
-      message: messages[Math.floor(Math.random() * messages.length)],
-      source: `service-${Math.floor(Math.random() * 5) + 1}`,
-      userId: Math.random() > 0.3 ? Math.floor(Math.random() * 100) + 1 : null
-    };
-  }
-
-  function generateLoremParagraph() {
-    const words = ['lorem', 'ipsum', 'dolor', 'sit', 'amet', 'consectetur', 'adipiscing', 'elit', 'sed', 'do', 'eiusmod', 'tempor', 'incididunt', 'ut', 'labore', 'et', 'dolore', 'magna', 'aliqua'];
-    const length = Math.floor(Math.random() * 30) + 20;
-    let paragraph = '';
-    
-    for (let i = 0; i < length; i++) {
-      paragraph += words[Math.floor(Math.random() * words.length)] + ' ';
-    }
-    
-    return paragraph.trim() + '.';
-  }
-
-  function generateEnglishParagraph() {
-    const sentences = [
-      'The quick brown fox jumps over the lazy dog.',
-      'Technology continues to evolve at an unprecedented pace.',
-      'Innovation drives progress in every industry.',
-      'Data analysis reveals important insights for decision making.',
-      'Collaboration between teams leads to better outcomes.',
-      'Quality assurance ensures product reliability.',
-      'User experience design focuses on customer satisfaction.'
-    ];
-    
-    const count = Math.floor(Math.random() * 4) + 3;
-    let paragraph = '';
-    
-    for (let i = 0; i < count; i++) {
-      paragraph += sentences[Math.floor(Math.random() * sentences.length)] + ' ';
-    }
-    
-    return paragraph.trim();
-  }
-
-  function generateTechParagraph() {
-    const terms = ['API', 'database', 'algorithm', 'framework', 'microservice', 'cloud', 'container', 'deployment', 'monitoring', 'scalability'];
-    const verbs = ['implements', 'processes', 'optimizes', 'manages', 'integrates', 'executes', 'validates', 'transforms'];
-    const adjectives = ['efficient', 'robust', 'scalable', 'secure', 'reliable', 'flexible', 'performant', 'maintainable'];
-    
-    const sentences = 3 + Math.floor(Math.random() * 3);
-    let paragraph = '';
-    
-    for (let i = 0; i < sentences; i++) {
-      const subject = terms[Math.floor(Math.random() * terms.length)];
-      const verb = verbs[Math.floor(Math.random() * verbs.length)];
-      const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
-      const object = terms[Math.floor(Math.random() * terms.length)];
-      
-      paragraph += `The ${adjective} ${subject} ${verb} ${object} effectively. `;
-    }
-    
-    return paragraph.trim();
-  }
-
-  function generateNames(count) {
-    const firstNames = ['Alex', 'Jordan', 'Casey', 'Taylor', 'Morgan', 'Cameron', 'Riley', 'Avery', 'Quinn', 'Sage'];
-    const lastNames = ['Anderson', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez'];
-    
-    const names = [];
-    for (let i = 0; i < count; i++) {
-      const first = firstNames[Math.floor(Math.random() * firstNames.length)];
-      const last = lastNames[Math.floor(Math.random() * lastNames.length)];
-      names.push(`${first} ${last}`);
-    }
-    
-    return names;
-  }
-
-  function generateUUIDv4() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      const r = Math.random() * 16 | 0;
-      const v = c == 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
-  }
-
-  function generateUUIDv1() {
-    // Simplified v1 UUID (timestamp-based)
-    const timestamp = Date.now();
-    return `${timestamp.toString(16)}-xxxx-1xxx-yxxx-xxxxxxxxxxxx`.replace(/[xy]/g, function(c) {
-      const r = Math.random() * 16 | 0;
-      const v = c == 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
-  }
-
-  function generateShortUUID() {
-    return Math.random().toString(36).substr(2, 9);
-  }
-
-  function generateFromSchemaObject(schema) {
-    const result = {};
-    
-    Object.entries(schema).forEach(([key, type]) => {
-      switch (type.toLowerCase()) {
-        case 'string':
-          result[key] = generateRandomString();
-          break;
-        case 'number':
-          result[key] = Math.floor(Math.random() * 1000);
-          break;
-        case 'boolean':
-          result[key] = Math.random() > 0.5;
-          break;
-        case 'date':
-          result[key] = new Date().toISOString();
-          break;
-        case 'email':
-          result[key] = `user${Math.floor(Math.random() * 1000)}@example.com`;
-          break;
-        case 'uuid':
-          result[key] = generateUUIDv4();
-          break;
-        default:
-          result[key] = null;
-      }
-    });
-    
-    return result;
-  }
-
-  function generateRandomString() {
-    const words = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta', 'theta'];
-    return words[Math.floor(Math.random() * words.length)];
-  }
-
-  // Utility functions
-  function removeEmptyValues(obj) {
-    if (Array.isArray(obj)) {
-      return obj.map(removeEmptyValues).filter(item => 
-        item !== null && item !== undefined && item !== '' && 
-        !(Array.isArray(item) && item.length === 0) &&
-        !(typeof item === 'object' && Object.keys(item).length === 0)
-      );
-    }
-    
-    if (typeof obj === 'object' && obj !== null) {
-      const result = {};
-      Object.entries(obj).forEach(([key, value]) => {
-        const cleanValue = removeEmptyValues(value);
-        if (cleanValue !== null && cleanValue !== undefined && cleanValue !== '' && 
-            !(Array.isArray(cleanValue) && cleanValue.length === 0) &&
-            !(typeof cleanValue === 'object' && Object.keys(cleanValue).length === 0)) {
-          result[key] = cleanValue;
-        }
+        return row;
       });
-      return result;
-    }
-    
-    return obj;
+      showGenerated(data);
+    } catch (e) { toast('Invalid schema: ' + e.message, true); }
   }
 
-  function sortObjectKeys(obj) {
-    if (Array.isArray(obj)) {
-      return obj.map(sortObjectKeys);
-    }
-    
-    if (typeof obj === 'object' && obj !== null) {
-      const result = {};
-      Object.keys(obj).sort().forEach(key => {
-        result[key] = sortObjectKeys(obj[key]);
-      });
-      return result;
-    }
-    
-    return obj;
+  function genSimple(data) { showGenerated(data); }
+
+  function showGenerated(data) {
+    el('#dtGenRaw').value = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    const tree = el('#dtGenTree');
+    if (typeof data === 'string') { tree.innerHTML = `<pre style="margin:0;white-space:pre-wrap;">${escapeHtml(data)}</pre>`; return; }
+    tree.innerHTML = buildJsonTree(data);
+    bindTreeToggles(tree);
   }
 
-  function flattenObject(obj, prefix = '') {
-    const result = {};
-    
-    Object.entries(obj).forEach(([key, value]) => {
-      const newKey = prefix ? `${prefix}.${key}` : key;
-      
-      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-        Object.assign(result, flattenObject(value, newKey));
-      } else {
-        result[newKey] = value;
-      }
+  // ---- Data generators ----
+
+  const NAMES = ['Liam', 'Emma', 'Noah', 'Olivia', 'James', 'Ava', 'William', 'Sophia', 'Oliver', 'Isabella'];
+  const LASTS = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez'];
+  const CITIES = ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix', 'San Antonio', 'Dallas', 'Austin', 'Seattle', 'Denver'];
+
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+  function genUser(id) {
+    const fn = pick(NAMES), ln = pick(LASTS);
+    return { id, name: `${fn} ${ln}`, email: `${fn.toLowerCase()}.${ln.toLowerCase()}@example.com`, age: randInt(18, 65), city: pick(CITIES), active: Math.random() > 0.3 };
+  }
+  function genProduct(id) {
+    const items = ['Laptop', 'Phone', 'Tablet', 'Headphones', 'Keyboard', 'Mouse', 'Monitor', 'Camera'];
+    const brands = ['Apple', 'Samsung', 'Sony', 'Dell', 'LG', 'Logitech', 'Bose', 'Anker'];
+    return { id, name: pick(items), brand: pick(brands), price: randInt(25, 2000), rating: +(Math.random() * 4 + 1).toFixed(1), inStock: Math.random() > 0.2 };
+  }
+  function genOrder(id) {
+    return { id, customerId: randInt(1, 200), items: randInt(1, 5), total: randInt(15, 1500), status: pick(['pending', 'shipped', 'delivered', 'cancelled']), date: new Date(Date.now() - Math.random() * 90 * 86400000).toISOString().split('T')[0] };
+  }
+  function genLog(id) {
+    return { id, ts: new Date(Date.now() - Math.random() * 86400000).toISOString(), level: pick(['DEBUG', 'INFO', 'WARN', 'ERROR']), msg: pick(['Auth OK', 'DB connected', 'Cache miss', 'Rate limited', 'Timeout', 'File uploaded', 'Job started']), service: `svc-${randInt(1, 8)}` };
+  }
+
+  function generateLorem(n) {
+    const words = 'lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua'.split(' ');
+    let out = '';
+    for (let i = 0; i < n; i++) { const len = randInt(20, 40); out += Array.from({ length: len }, () => pick(words)).join(' ') + '.\n\n'; }
+    return out.trim();
+  }
+
+  // ---- Shared JSON tree (from network tools pattern) ----
+
+  function buildJsonTree(data, depth = 0) {
+    if (data === null) return '<span class="nt-v-null">null</span>';
+    if (data === undefined) return '<span class="nt-v-null">undefined</span>';
+    const t = typeof data;
+    if (t === 'string') return `<span class="nt-v-str">"${escapeHtml(data.length > 200 ? data.slice(0, 200) + '…' : data)}"</span>`;
+    if (t === 'number') return `<span class="nt-v-num">${data}</span>`;
+    if (t === 'boolean') return `<span class="nt-v-bool">${data}</span>`;
+
+    if (Array.isArray(data)) {
+      if (!data.length) return '<span class="nt-v-bracket">[]</span>';
+      const col = depth > 1;
+      return `<span class="nt-toggle">${col ? '▸' : '▾'}</span><span class="nt-v-bracket">[</span><span class="nt-count">${data.length}</span><div class="nt-children" style="${col ? 'display:none;' : ''}">${
+        data.map((v, i) => `<div class="nt-prop"><span class="nt-key">${i}</span>: ${buildJsonTree(v, depth + 1)}${i < data.length - 1 ? ',' : ''}</div>`).join('')
+      }</div><span class="nt-v-bracket">]</span>`;
+    }
+
+    if (t === 'object') {
+      const keys = Object.keys(data);
+      if (!keys.length) return '<span class="nt-v-bracket">{}</span>';
+      const col = depth > 1;
+      return `<span class="nt-toggle">${col ? '▸' : '▾'}</span><span class="nt-v-bracket">{</span><span class="nt-count">${keys.length}</span><div class="nt-children" style="${col ? 'display:none;' : ''}">${
+        keys.map((k, i) => `<div class="nt-prop"><span class="nt-key">"${escapeHtml(k)}"</span>: ${buildJsonTree(data[k], depth + 1)}${i < keys.length - 1 ? ',' : ''}</div>`).join('')
+      }</div><span class="nt-v-bracket">}</span>`;
+    }
+    return escapeHtml(String(data));
+  }
+
+  function bindTreeToggles(root) {
+    root.querySelectorAll('.nt-toggle').forEach(el => {
+      el.onclick = (e) => {
+        e.stopPropagation();
+        const kids = el.parentElement.querySelector('.nt-children');
+        if (kids) { const open = kids.style.display === 'none'; kids.style.display = open ? '' : 'none'; el.textContent = open ? '▾' : '▸'; }
+      };
     });
-    
-    return result;
   }
 
-  function normalizeDataValues(obj) {
-    if (Array.isArray(obj)) {
-      return obj.map(normalizeDataValues);
+  // ---- Transform utilities ----
+
+  function removeEmpty(o) {
+    if (Array.isArray(o)) return o.map(removeEmpty).filter(v => v != null && v !== '' && !(Array.isArray(v) && !v.length));
+    if (typeof o === 'object' && o !== null) { const r = {}; for (const [k, v] of Object.entries(o)) { const c = removeEmpty(v); if (c != null && c !== '') r[k] = c; } return r; }
+    return o;
+  }
+  function sortKeys(o) {
+    if (Array.isArray(o)) return o.map(sortKeys);
+    if (typeof o === 'object' && o !== null) { const r = {}; Object.keys(o).sort().forEach(k => r[k] = sortKeys(o[k])); return r; }
+    return o;
+  }
+  function flatten(o, prefix = '') {
+    const r = {};
+    for (const [k, v] of Object.entries(o)) {
+      const nk = prefix ? `${prefix}.${k}` : k;
+      if (typeof v === 'object' && v !== null && !Array.isArray(v)) Object.assign(r, flatten(v, nk));
+      else r[nk] = v;
     }
-    
-    if (typeof obj === 'object' && obj !== null) {
-      const result = {};
-      Object.entries(obj).forEach(([key, value]) => {
-        result[key] = normalizeDataValues(value);
-      });
-      return result;
-    }
-    
-    if (typeof obj === 'string') {
-      // Try to parse numbers
-      if (!isNaN(obj) && !isNaN(parseFloat(obj))) {
-        return parseFloat(obj);
-      }
-      // Try to parse booleans
-      if (obj.toLowerCase() === 'true') return true;
-      if (obj.toLowerCase() === 'false') return false;
-      // Try to parse dates
-      if (obj.match(/^\d{4}-\d{2}-\d{2}/)) {
-        const date = new Date(obj);
-        if (!isNaN(date.getTime())) {
-          return date.toISOString();
-        }
-      }
-    }
-    
-    return obj;
+    return r;
+  }
+  function toCSV(arr) {
+    if (!arr.length) return '';
+    const h = Object.keys(arr[0]);
+    return [h.join(','), ...arr.map(r => h.map(k => { const v = String(r[k] ?? ''); return v.includes(',') ? `"${v}"` : v; }).join(','))].join('\n');
+  }
+  function toYAML(o, d = 0) {
+    const sp = '  '.repeat(d);
+    if (Array.isArray(o)) return o.map(v => `${sp}- ${typeof v === 'object' ? '\n' + toYAML(v, d + 1) : v}`).join('\n');
+    if (typeof o === 'object' && o !== null) return Object.entries(o).map(([k, v]) => typeof v === 'object' && v !== null ? `${sp}${k}:\n${toYAML(v, d + 1)}` : `${sp}${k}: ${v}`).join('\n');
+    return String(o);
+  }
+  function toXML(o, tag = 'root') {
+    if (typeof o !== 'object' || o === null) return `<${tag}>${escapeHtml(String(o))}</${tag}>`;
+    if (Array.isArray(o)) return o.map(v => toXML(v, 'item')).join('\n');
+    let xml = `<${tag}>`;
+    for (const [k, v] of Object.entries(o)) xml += toXML(v, k);
+    return xml + `</${tag}>`;
   }
 
-  function arrayToCSV(data) {
-    if (!Array.isArray(data) || data.length === 0) return '';
-    
-    const headers = Object.keys(data[0]);
-    const csvRows = [headers.join(',')];
-    
-    data.forEach(row => {
-      const values = headers.map(header => {
-        const value = row[header];
-        return typeof value === 'string' && value.includes(',') ? `"${value}"` : value;
-      });
-      csvRows.push(values.join(','));
-    });
-    
-    return csvRows.join('\n');
+  // ---- Shared helpers ----
+
+  function copyText(t) { if (t) navigator.clipboard.writeText(t).then(() => toast('Copied ✅')).catch(() => toast('Copy failed', true)); }
+  function toast(msg, isErr = false) {
+    const n = document.createElement('div');
+    n.textContent = msg;
+    n.style.cssText = `position:fixed!important;top:20px!important;right:20px!important;background:${isErr ? '#dc2626' : '#059669'}!important;color:white!important;padding:10px 18px!important;border-radius:8px!important;z-index:1000000!important;font-size:13px!important;font-family:var(--ganj-font-sans)!important;box-shadow:0 4px 12px rgba(0,0,0,0.15)!important;`;
+    document.body.appendChild(n);
+    setTimeout(() => n.remove(), 2500);
   }
 
-  function parseBasicYAML(yaml) {
-    // Very basic YAML parser - for demo purposes only
-    const result = {};
-    const lines = yaml.split('\n');
-    
-    lines.forEach(line => {
-      const trimmed = line.trim();
-      if (trimmed && !trimmed.startsWith('#')) {
-        const colonIndex = trimmed.indexOf(':');
-        if (colonIndex > 0) {
-          const key = trimmed.substring(0, colonIndex).trim();
-          const value = trimmed.substring(colonIndex + 1).trim();
-          result[key] = value;
-        }
-      }
-    });
-    
-    return result;
-  }
+  function show() { createUI(); container.classList.remove('hidden'); isVisible = true; }
+  function hide() { if (container) container.classList.add('hidden'); isVisible = false; }
+  function toggle() { isVisible ? hide() : show(); }
 
-  function jsonToBasicYAML(obj, indent = 0) {
-    let yaml = '';
-    const spaces = '  '.repeat(indent);
-    
-    Object.entries(obj).forEach(([key, value]) => {
-      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-        yaml += `${spaces}${key}:\n${jsonToBasicYAML(value, indent + 1)}`;
-      } else if (Array.isArray(value)) {
-        yaml += `${spaces}${key}:\n`;
-        value.forEach(item => {
-          yaml += `${spaces}  - ${item}\n`;
-        });
-      } else {
-        yaml += `${spaces}${key}: ${value}\n`;
-      }
-    });
-    
-    return yaml;
-  }
+  // ---- Sample data ----
+  const SAMPLE_JSON = { users: [{ id: 1, name: 'Liam Smith', email: 'liam@example.com', profile: { age: 28, city: 'NYC', tags: ['dev', 'gamer'] } }, { id: 2, name: 'Emma Jones', email: 'emma@example.com', profile: { age: 32, city: 'LA', tags: ['design', 'travel'] } }], meta: { total: 2, ts: new Date().toISOString() } };
+  const SAMPLE_CSV = 'name,age,city,role,salary\nLiam Smith,28,New York,Engineer,95000\nEmma Jones,32,Los Angeles,Designer,85000\nNoah Brown,25,Chicago,Analyst,70000\nOlivia Garcia,30,Houston,Manager,90000';
+  const SAMPLE_XML = `<?xml version="1.0"?>\n<catalog>\n  <product id="1">\n    <name>Laptop</name>\n    <price currency="USD">999.99</price>\n    <specs>\n      <cpu>Intel i7</cpu>\n      <ram>16GB</ram>\n    </specs>\n  </product>\n  <product id="2">\n    <name>Phone</name>\n    <price currency="USD">699.99</price>\n    <specs>\n      <cpu>A15</cpu>\n      <ram>6GB</ram>\n    </specs>\n  </product>\n</catalog>`;
 
-  function generateTableHTML(data) {
-    if (!Array.isArray(data) || data.length === 0) {
-      return '<div class="no-data">No data to display</div>';
-    }
-    
-    const headers = Object.keys(data[0]);
-    let html = '<table class="data-table"><thead><tr>';
-    
-    headers.forEach(header => {
-      html += `<th>${escapeHtml(header)}</th>`;
-    });
-    html += '</tr></thead><tbody>';
-    
-    data.forEach(row => {
-      html += '<tr>';
-      headers.forEach(header => {
-        html += `<td>${escapeHtml(row[header] || '')}</td>`;
-      });
-      html += '</tr>';
-    });
-    
-    html += '</tbody></table>';
-    return html;
-  }
-
-  function showSuccess(message) {
-    const notification = document.createElement('div');
-    notification.textContent = '✅ ' + message;
-    notification.style.cssText = `
-      position: fixed !important;
-      top: 20px !important;
-      right: 20px !important;
-      background: #10b981 !important;
-      color: white !important;
-      padding: 12px 20px !important;
-      border-radius: 6px !important;
-      z-index: 1000000 !important;
-      font-size: 14px !important;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-    `;
-    document.body.appendChild(notification);
-    setTimeout(() => notification.remove(), 3000);
-  }
-
-  function showError(message) {
-    const notification = document.createElement('div');
-    notification.textContent = '❌ ' + message;
-    notification.style.cssText = `
-      position: fixed !important;
-      top: 20px !important;
-      right: 20px !important;
-      background: #ef4444 !important;
-      color: white !important;
-      padding: 12px 20px !important;
-      border-radius: 6px !important;
-      z-index: 1000000 !important;
-      font-size: 14px !important;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-    `;
-    document.body.appendChild(notification);
-    setTimeout(() => notification.remove(), 4000);
-  }
-
-  function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
-
-  function show() {
-    if (!container) createInterface();
-    container.classList.remove('hidden');
-    isVisible = true;
-  }
-
-  function hide() {
-    if (container) container.classList.add('hidden');
-    isVisible = false;
-  }
-
-  function toggle() {
-    isVisible ? hide() : show();
-  }
-
-  return { 
-    init, show, hide, toggle,
-    formatJSON, minifyJSON, validateJSON, loadSampleJSON, queryJSONPath,
-    parseCSV, generateCSV, loadSampleCSV, csvToJSON,
-    formatXML, minifyXML, validateXML, loadSampleXML, xmlToJSON, jsonToXML,
-    transformData,
-    generateMockData, generateNumbers, generateText, generateDates, generateUUIDs, generateFromSchema,
-    copyGeneratedData, downloadGeneratedData, clearGeneratedData
-  };
+  return { init, show, hide, toggle };
 })();
 
 window.DataTools = DataTools;
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', DataTools.init);
-} else {
-  DataTools.init();
-}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', DataTools.init);
+else DataTools.init();
