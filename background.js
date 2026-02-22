@@ -413,6 +413,25 @@ const messageHandlers = {
     return true;
   },
 
+  fetchUrl(message, sender, sendResponse) {
+    if (!message.url) return;
+    const start = Date.now();
+    const opts = message.options || {};
+    fetch(message.url, opts).then(async (res) => {
+      const body = await res.text();
+      sendResponse({
+        status: res.status,
+        statusText: res.statusText,
+        headers: Object.fromEntries(res.headers.entries()),
+        body,
+        time: Date.now() - start
+      });
+    }).catch(err => {
+      sendResponse({ error: err.message, time: Date.now() - start });
+    });
+    return true;
+  },
+
   executeInPage(message, sender, sendResponse) {
     if (!sender.tab?.id || !message.code) return;
     chrome.scripting.executeScript({

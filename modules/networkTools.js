@@ -1,29 +1,29 @@
-// Network Tools - Developer network utilities
 const NetworkTools = (() => {
   let container = null;
   let isVisible = false;
-  let requestHistory = [];
+  let entries = [];
+  let observer = null;
   let isMonitoring = false;
-  let monitoringStart = null;
+  let monitorStart = null;
+  let durationTimer = null;
 
   function init() {
-    createInterface();
-    setupKeyboardShortcut();
-    loadRequestHistory();
-  }
-
-  function setupKeyboardShortcut() {
     document.addEventListener('keydown', (e) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'N') {
-        e.preventDefault();
-        toggle();
-      }
+      if (e.ctrlKey && e.shiftKey && e.key === 'N') { e.preventDefault(); toggle(); }
+      if (e.key === 'Escape' && isVisible) hide();
     });
   }
 
-  function createInterface() {
-    if (container) return;
+  function bgFetch(url, options = {}) {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: 'fetchUrl', url, options }, (res) => {
+        resolve(res || { error: 'No response from background' });
+      });
+    });
+  }
 
+  function createUI() {
+    if (container) return;
     container = document.createElement('div');
     container.className = 'ganj-ext-network-tools hidden';
     container.innerHTML = `
@@ -35,823 +35,500 @@ const NetworkTools = (() => {
             <button class="network-tools-close">✕</button>
           </div>
         </div>
-        
         <div class="network-tools-tabs">
-          <button class="network-tab-btn active" data-tab="monitor">📊 Monitor</button>
-          <button class="network-tab-btn" data-tab="api-test">🧪 API Test</button>
-          <button class="network-tab-btn" data-tab="analysis">📈 Analysis</button>
-          <button class="network-tab-btn" data-tab="tools">🔧 Tools</button>
+          <button class="network-tab-btn active" data-tab="monitor">Monitor</button>
+          <button class="network-tab-btn" data-tab="api">API Tester</button>
+          <button class="network-tab-btn" data-tab="tools">Tools</button>
+          <button class="network-tab-btn" data-tab="security">Security</button>
         </div>
-        
         <div class="network-tools-content">
-          <!-- Monitor Tab -->
+
+          <!-- Monitor -->
           <div class="network-tab-content active" data-tab="monitor">
             <div class="monitor-controls">
-              <button id="startMonitoring" class="btn-primary">▶️ Start Monitoring</button>
-              <button id="stopMonitoring" class="btn-secondary" disabled>⏹️ Stop</button>
-              <button id="clearHistory" class="btn-outline">🗑️ Clear</button>
-              <button id="exportRequests" class="btn-outline">💾 Export</button>
+              <button id="ntStartMon" class="btn-primary">▶ Start</button>
+              <button id="ntStopMon" class="btn-secondary" disabled>⏹ Stop</button>
+              <button id="ntClearMon" class="btn-outline">Clear</button>
+              <button id="ntExportMon" class="btn-outline">Export</button>
             </div>
-            
             <div class="monitor-stats">
-              <div class="stat-item">
-                <span class="stat-label">Total Requests:</span>
-                <span id="totalRequests">0</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">Monitoring:</span>
-                <span id="monitoringStatus">Stopped</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">Duration:</span>
-                <span id="monitoringDuration">0s</span>
-              </div>
+              <div class="stat-item"><span class="stat-label">Requests</span><span class="stat-value" id="ntTotal">0</span></div>
+              <div class="stat-item"><span class="stat-label">Status</span><span class="stat-value" id="ntStatus">Stopped</span></div>
+              <div class="stat-item"><span class="stat-label">Duration</span><span class="stat-value" id="ntDuration">—</span></div>
+              <div class="stat-item"><span class="stat-label">Avg Time</span><span class="stat-value" id="ntAvg">—</span></div>
             </div>
-            
             <div class="monitor-filters">
-              <input type="text" id="filterUrl" placeholder="Filter by URL...">
-              <select id="filterMethod">
-                <option value="">All Methods</option>
-                <option value="GET">GET</option>
-                <option value="POST">POST</option>
-                <option value="PUT">PUT</option>
-                <option value="DELETE">DELETE</option>
-                <option value="PATCH">PATCH</option>
-              </select>
-              <select id="filterStatus">
-                <option value="">All Status</option>
-                <option value="2xx">2xx Success</option>
-                <option value="3xx">3xx Redirect</option>
-                <option value="4xx">4xx Client Error</option>
-                <option value="5xx">5xx Server Error</option>
+              <input type="text" id="ntFilterUrl" placeholder="Filter URL...">
+              <select id="ntFilterType">
+                <option value="">All types</option>
+                <option value="xmlhttprequest">XHR</option>
+                <option value="fetch">Fetch</option>
+                <option value="script">Script</option>
+                <option value="css">CSS</option>
+                <option value="img">Image</option>
+                <option value="font">Font</option>
               </select>
             </div>
-            
-            <div class="request-list" id="requestList">
-              <div class="no-requests">No requests recorded. Start monitoring to see network activity.</div>
+            <div id="ntRequestList" class="request-list">
+              <div class="no-data">Click Start to begin monitoring network activity.</div>
             </div>
           </div>
-          
-          <!-- API Test Tab -->
-          <div class="network-tab-content" data-tab="api-test">
+
+          <!-- API Tester -->
+          <div class="network-tab-content" data-tab="api">
             <div class="api-test-form">
-              <div class="request-builder">
-                <div class="request-line">
-                  <select id="requestMethod">
-                    <option value="GET">GET</option>
-                    <option value="POST">POST</option>
-                    <option value="PUT">PUT</option>
-                    <option value="DELETE">DELETE</option>
-                    <option value="PATCH">PATCH</option>
-                    <option value="OPTIONS">OPTIONS</option>
-                    <option value="HEAD">HEAD</option>
-                  </select>
-                  <input type="url" id="requestUrl" placeholder="https://api.example.com/endpoint">
-                  <button id="sendRequest" class="btn-primary">Send</button>
-                </div>
-                
-                <div class="request-sections">
-                  <div class="section">
-                    <h4>Headers</h4>
-                    <div class="headers-container">
-                      <div class="header-row">
-                        <input type="text" placeholder="Content-Type" class="header-key">
-                        <input type="text" placeholder="application/json" class="header-value">
-                        <button class="remove-header" style="display: none;">×</button>
-                      </div>
-                    </div>
-                    <button id="addHeader" class="btn-outline btn-small">+ Add Header</button>
-                  </div>
-                  
-                  <div class="section" id="bodySection" style="display: none;">
-                    <h4>Request Body</h4>
-                    <div class="body-type-selector">
-                      <label><input type="radio" name="bodyType" value="json" checked> JSON</label>
-                      <label><input type="radio" name="bodyType" value="text"> Text</label>
-                      <label><input type="radio" name="bodyType" value="form"> Form Data</label>
-                    </div>
-                    <textarea id="requestBody" placeholder='{"key": "value"}'></textarea>
+              <div class="request-line">
+                <select id="ntMethod">
+                  <option>GET</option><option>POST</option><option>PUT</option>
+                  <option>DELETE</option><option>PATCH</option><option>HEAD</option><option>OPTIONS</option>
+                </select>
+                <input type="url" id="ntUrl" placeholder="https://api.example.com/endpoint">
+                <button id="ntSend" class="btn-primary">Send</button>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                <button class="btn-small btn-outline" data-qt="https://httpbin.org/get">GET test</button>
+                <button class="btn-small btn-outline" data-qt="https://httpbin.org/post" data-qm="POST">POST test</button>
+                <button class="btn-small btn-outline" data-qt="https://httpbin.org/status/404">404 test</button>
+                <button class="btn-small btn-outline" data-qt="https://httpbin.org/headers">Headers test</button>
+                <button class="btn-small btn-outline" data-qt="https://httpbin.org/delay/1">Slow (1s)</button>
+                <button class="btn-small btn-outline" data-qt="https://jsonplaceholder.typicode.com/todos/1">JSON API</button>
+              </div>
+              <details style="margin-bottom:8px;">
+                <summary style="cursor:pointer;font-size:13px;color:var(--ganj-text-secondary,#475569);margin-bottom:8px;">Headers & Body</summary>
+                <div id="ntHeaders" style="margin-bottom:8px;">
+                  <div class="header-row" style="display:flex;gap:6px;margin-bottom:4px;">
+                    <input type="text" placeholder="Header name" class="header-key" style="flex:1;">
+                    <input type="text" placeholder="value" class="header-value" style="flex:1;">
                   </div>
                 </div>
-              </div>
-              
-              <div class="quick-tests">
-                <h4>🚀 Quick Tests</h4>
-                <button class="quick-test-btn" data-url="https://httpbin.org/get">GET Test</button>
-                <button class="quick-test-btn" data-url="https://httpbin.org/post" data-method="POST">POST Test</button>
-                <button class="quick-test-btn" data-url="https://httpbin.org/status/404" data-status="404">404 Test</button>
-                <button class="quick-test-btn" data-url="https://httpbin.org/delay/2">Slow Response</button>
-              </div>
+                <button id="ntAddHeader" class="btn-small btn-outline" style="margin-bottom:8px;">+ Header</button>
+                <textarea id="ntBody" placeholder='{"key": "value"}' style="width:100%;height:80px;font-family:var(--ganj-font-mono,monospace);font-size:13px;padding:8px;border:1px solid var(--ganj-border,#e2e8f0);border-radius:6px;resize:vertical;color:var(--ganj-text,#1e293b);"></textarea>
+              </details>
             </div>
-            
-            <div class="response-section">
-              <h4>Response</h4>
-              <div class="response-tabs">
-                <button class="response-tab active" data-tab="body">Body</button>
-                <button class="response-tab" data-tab="headers">Headers</button>
-                <button class="response-tab" data-tab="timing">Timing</button>
-              </div>
-              
-              <div class="response-info">
-                <span id="responseStatus">Status: -</span>
-                <span id="responseTime">Time: -</span>
-                <span id="responseSize">Size: -</span>
-              </div>
-              
-              <div class="response-content">
-                <div class="response-body-content active" data-tab="body">
-                  <pre id="responseBody">Make a request to see the response</pre>
-                </div>
-                <div class="response-body-content" data-tab="headers">
-                  <pre id="responseHeaders">Response headers will appear here</pre>
-                </div>
-                <div class="response-body-content" data-tab="timing">
-                  <pre id="responseTiming">Timing information will appear here</pre>
-                </div>
-              </div>
+            <div id="ntResponse" style="margin-top:12px;">
+              <div class="no-data">Send a request to see the response.</div>
             </div>
           </div>
-          
-          <!-- Analysis Tab -->
-          <div class="network-tab-content" data-tab="analysis">
-            <div class="analysis-overview">
-              <h4>📊 Request Analysis</h4>
-              <div class="analysis-grid">
-                <div class="analysis-card">
-                  <h5>By Method</h5>
-                  <div id="methodChart"></div>
-                </div>
-                <div class="analysis-card">
-                  <h5>By Status Code</h5>
-                  <div id="statusChart"></div>
-                </div>
-                <div class="analysis-card">
-                  <h5>By Domain</h5>
-                  <div id="domainChart"></div>
-                </div>
-                <div class="analysis-card">
-                  <h5>Response Times</h5>
-                  <div id="timingChart"></div>
-                </div>
-              </div>
-            </div>
-            
-            <div class="analysis-insights">
-              <h4>🔍 Insights</h4>
-              <div id="insightsList">
-                <div class="insight">Start monitoring to generate insights</div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Tools Tab -->
+
+          <!-- Tools -->
           <div class="network-tab-content" data-tab="tools">
             <div class="network-tools-grid">
               <div class="tool-card">
-                <h4>📡 Ping Test</h4>
-                <input type="text" id="pingHost" placeholder="example.com">
-                <button onclick="window.NetworkTools.pingHost()" class="btn-primary">Ping</button>
-                <div id="pingResult"></div>
+                <h4>📡 Ping</h4>
+                <div style="display:flex;gap:6px;">
+                  <input type="text" id="ntPingHost" placeholder="example.com" style="flex:1;">
+                  <button id="ntPing" class="btn-primary btn-small">Ping</button>
+                </div>
+                <div id="ntPingResult"></div>
               </div>
-              
-              <div class="tool-card">
-                <h4>🔗 URL Analyzer</h4>
-                <input type="url" id="urlAnalyze" placeholder="https://example.com">
-                <button onclick="window.NetworkTools.analyzeUrl()" class="btn-primary">Analyze</button>
-                <div id="urlResult"></div>
-              </div>
-              
               <div class="tool-card">
                 <h4>📄 HTTP Headers</h4>
-                <input type="url" id="headersUrl" placeholder="https://example.com">
-                <button onclick="window.NetworkTools.checkHeaders()" class="btn-primary">Check Headers</button>
-                <div id="headersResult"></div>
+                <div style="display:flex;gap:6px;">
+                  <input type="url" id="ntHeadersUrl" placeholder="https://example.com" style="flex:1;">
+                  <button id="ntCheckHeaders" class="btn-primary btn-small">Check</button>
+                </div>
+                <div id="ntHeadersResult"></div>
               </div>
-              
               <div class="tool-card">
-                <h4>🚀 Performance Test</h4>
-                <input type="url" id="perfUrl" placeholder="https://example.com">
-                <input type="number" id="perfRequests" placeholder="10" min="1" max="50">
-                <button onclick="window.NetworkTools.performanceTest()" class="btn-primary">Test</button>
-                <div id="perfResult"></div>
+                <h4>🔗 URL Analyzer</h4>
+                <div style="display:flex;gap:6px;">
+                  <input type="url" id="ntAnalyzeUrl" placeholder="https://example.com/path?q=1" style="flex:1;">
+                  <button id="ntAnalyze" class="btn-primary btn-small">Analyze</button>
+                </div>
+                <div id="ntAnalyzeResult"></div>
+              </div>
+              <div class="tool-card">
+                <h4>🚀 Perf Test</h4>
+                <div style="display:flex;gap:6px;">
+                  <input type="url" id="ntPerfUrl" placeholder="https://example.com" style="flex:1;">
+                  <input type="number" id="ntPerfCount" value="5" min="1" max="20" style="width:50px;">
+                  <button id="ntPerf" class="btn-primary btn-small">Run</button>
+                </div>
+                <div id="ntPerfResult"></div>
               </div>
             </div>
           </div>
+
+          <!-- Security -->
+          <div class="network-tab-content" data-tab="security">
+            <div style="margin-bottom:16px;">
+              <button id="ntRunSecurity" class="btn-primary">🔒 Run Security Scan</button>
+              <span style="font-size:12px;color:var(--ganj-text-muted,#64748b);margin-left:8px;">Checks current page headers & configuration</span>
+            </div>
+            <div id="ntSecurityResults"><div class="no-data">Click Run to scan this page for common security issues.</div></div>
+          </div>
+
         </div>
       </div>
     `;
-
     document.body.appendChild(container);
-    attachEventListeners();
-    updateStats();
+    bindEvents();
   }
 
-  function attachEventListeners() {
+  function bindEvents() {
     container.querySelector('.network-tools-close').addEventListener('click', hide);
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && isVisible) hide();
-    });
-    
-    // Tab switching
-    container.querySelectorAll('.network-tab-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const tabName = e.target.dataset.tab;
-        switchTab(tabName);
+
+    container.querySelectorAll('.network-tab-btn').forEach(b => {
+      b.addEventListener('click', () => {
+        container.querySelectorAll('.network-tab-btn').forEach(x => x.classList.toggle('active', x === b));
+        container.querySelectorAll('.network-tab-content').forEach(c => c.classList.toggle('active', c.dataset.tab === b.dataset.tab));
       });
     });
-    
-    // Monitor controls
-    container.querySelector('#startMonitoring').addEventListener('click', startMonitoring);
-    container.querySelector('#stopMonitoring').addEventListener('click', stopMonitoring);
-    container.querySelector('#clearHistory').addEventListener('click', clearHistory);
-    container.querySelector('#exportRequests').addEventListener('click', exportRequests);
-    
-    // API Test controls
-    container.querySelector('#sendRequest').addEventListener('click', sendAPIRequest);
-    container.querySelector('#addHeader').addEventListener('click', addHeaderRow);
-    container.querySelector('#requestMethod').addEventListener('change', updateBodySection);
-    
-    // Response tabs
-    container.querySelectorAll('.response-tab').forEach(tab => {
-      tab.addEventListener('click', (e) => {
-        switchResponseTab(e.target.dataset.tab);
+
+    // Monitor
+    container.querySelector('#ntStartMon').addEventListener('click', startMonitor);
+    container.querySelector('#ntStopMon').addEventListener('click', stopMonitor);
+    container.querySelector('#ntClearMon').addEventListener('click', () => { entries = []; renderEntries(); updateMonitorStats(); });
+    container.querySelector('#ntExportMon').addEventListener('click', () => {
+      if (!entries.length) return;
+      downloadText(JSON.stringify(entries, null, 2), `network-${Date.now()}.json`, 'application/json');
+    });
+    container.querySelector('#ntFilterUrl').addEventListener('input', renderEntries);
+    container.querySelector('#ntFilterType').addEventListener('change', renderEntries);
+
+    // API tester
+    container.querySelector('#ntSend').addEventListener('click', sendRequest);
+    container.querySelector('#ntAddHeader').addEventListener('click', () => {
+      const row = document.createElement('div');
+      row.className = 'header-row';
+      row.style.cssText = 'display:flex;gap:6px;margin-bottom:4px;';
+      row.innerHTML = `<input type="text" placeholder="Header" class="header-key" style="flex:1;">
+        <input type="text" placeholder="value" class="header-value" style="flex:1;">
+        <button class="btn-small btn-danger" style="padding:4px 8px;">×</button>`;
+      row.querySelector('button').onclick = () => row.remove();
+      container.querySelector('#ntHeaders').appendChild(row);
+    });
+    container.querySelectorAll('[data-qt]').forEach(b => {
+      b.addEventListener('click', () => {
+        container.querySelector('#ntUrl').value = b.dataset.qt;
+        container.querySelector('#ntMethod').value = b.dataset.qm || 'GET';
+        sendRequest();
       });
     });
-    
-    // Quick tests
-    container.querySelectorAll('.quick-test-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const url = e.target.dataset.url;
-        const method = e.target.dataset.method || 'GET';
-        container.querySelector('#requestUrl').value = url;
-        container.querySelector('#requestMethod').value = method;
-        updateBodySection();
-      });
-    });
-    
-    // Filters
-    container.querySelector('#filterUrl').addEventListener('input', updateRequestList);
-    container.querySelector('#filterMethod').addEventListener('change', updateRequestList);
-    container.querySelector('#filterStatus').addEventListener('change', updateRequestList);
+
+    // Tools
+    container.querySelector('#ntPing').addEventListener('click', pingHost);
+    container.querySelector('#ntCheckHeaders').addEventListener('click', checkHeaders);
+    container.querySelector('#ntAnalyze').addEventListener('click', analyzeUrl);
+    container.querySelector('#ntPerf').addEventListener('click', perfTest);
+
+    // Security
+    container.querySelector('#ntRunSecurity').addEventListener('click', runSecurityScan);
   }
 
-  function switchTab(tabName) {
-    // Update tab buttons
-    container.querySelectorAll('.network-tab-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.tab === tabName);
-    });
-    
-    // Update tab content
-    container.querySelectorAll('.network-tab-content').forEach(content => {
-      content.classList.toggle('active', content.dataset.tab === tabName);
-    });
-    
-    // Update analysis when switching to analysis tab
-    if (tabName === 'analysis') {
-      updateAnalysis();
-    }
-  }
+  // ---- Monitor (uses PerformanceObserver) ----
 
-  function switchResponseTab(tabName) {
-    container.querySelectorAll('.response-tab').forEach(tab => {
-      tab.classList.toggle('active', tab.dataset.tab === tabName);
-    });
-    
-    container.querySelectorAll('.response-body-content').forEach(content => {
-      content.classList.toggle('active', content.dataset.tab === tabName);
-    });
-  }
-
-  function startMonitoring() {
+  function startMonitor() {
+    if (isMonitoring) return;
     isMonitoring = true;
-    monitoringStart = Date.now();
-    
-    container.querySelector('#startMonitoring').disabled = true;
-    container.querySelector('#stopMonitoring').disabled = false;
-    
-    // Intercept fetch requests
-    interceptFetchRequests();
-    
-    updateStats();
-    showSuccess('Network monitoring started');
-  }
+    monitorStart = Date.now();
+    entries = [];
 
-  function stopMonitoring() {
-    isMonitoring = false;
-    
-    container.querySelector('#startMonitoring').disabled = false;
-    container.querySelector('#stopMonitoring').disabled = true;
-    
-    updateStats();
-    showSuccess('Network monitoring stopped');
-  }
-
-  function interceptFetchRequests() {
-    if (window.originalFetch) return; // Already intercepted
-    
-    window.originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-      const [url, options = {}] = args;
-      const startTime = Date.now();
-      
-      try {
-        const response = await window.originalFetch(...args);
-        const endTime = Date.now();
-        
-        if (isMonitoring) {
-          recordRequest({
-            url: url.toString(),
-            method: options.method || 'GET',
-            status: response.status,
-            responseTime: endTime - startTime,
-            timestamp: new Date().toISOString(),
-            headers: Object.fromEntries(response.headers.entries()),
-            type: 'fetch'
-          });
-        }
-        
-        return response;
-      } catch (error) {
-        const endTime = Date.now();
-        
-        if (isMonitoring) {
-          recordRequest({
-            url: url.toString(),
-            method: options.method || 'GET',
-            status: 0,
-            responseTime: endTime - startTime,
-            timestamp: new Date().toISOString(),
-            error: error.message,
-            type: 'fetch'
-          });
-        }
-        
-        throw error;
-      }
-    };
-  }
-
-  function recordRequest(request) {
-    requestHistory.push(request);
-    saveRequestHistory();
-    updateRequestList();
-    updateStats();
-  }
-
-  function updateBodySection() {
-    const method = container.querySelector('#requestMethod').value;
-    const bodySection = container.querySelector('#bodySection');
-    
-    if (['POST', 'PUT', 'PATCH'].includes(method)) {
-      bodySection.style.display = 'block';
-    } else {
-      bodySection.style.display = 'none';
-    }
-  }
-
-  function addHeaderRow() {
-    const headersContainer = container.querySelector('.headers-container');
-    const headerRow = document.createElement('div');
-    headerRow.className = 'header-row';
-    headerRow.innerHTML = `
-      <input type="text" placeholder="Header name" class="header-key">
-      <input type="text" placeholder="Header value" class="header-value">
-      <button class="remove-header">×</button>
-    `;
-    
-    headerRow.querySelector('.remove-header').addEventListener('click', () => {
-      headerRow.remove();
-    });
-    
-    headersContainer.appendChild(headerRow);
-  }
-
-  async function sendAPIRequest() {
-    const method = container.querySelector('#requestMethod').value;
-    const url = container.querySelector('#requestUrl').value.trim();
-    
-    if (!url) {
-      showError('Please enter a URL');
-      return;
-    }
-    
-    try {
-      // Collect headers
-      const headers = {};
-      container.querySelectorAll('.header-row').forEach(row => {
-        const key = row.querySelector('.header-key').value.trim();
-        const value = row.querySelector('.header-value').value.trim();
-        if (key && value) {
-          headers[key] = value;
-        }
+    observer = new PerformanceObserver((list) => {
+      list.getEntries().forEach(e => {
+        entries.push({
+          url: e.name,
+          type: e.initiatorType,
+          duration: Math.round(e.duration),
+          size: e.transferSize || 0,
+          start: Math.round(e.startTime),
+          status: e.responseStatus || 0,
+          protocol: e.nextHopProtocol || ''
+        });
       });
-      
-      // Prepare request options
-      const options = {
-        method: method,
-        headers: headers
-      };
-      
-      // Add body for POST/PUT/PATCH
-      if (['POST', 'PUT', 'PATCH'].includes(method)) {
-        const bodyType = container.querySelector('input[name="bodyType"]:checked').value;
-        const bodyContent = container.querySelector('#requestBody').value.trim();
-        
-        if (bodyContent) {
-          if (bodyType === 'json') {
-            options.headers['Content-Type'] = 'application/json';
-            options.body = bodyContent;
-          } else {
-            options.body = bodyContent;
-          }
-        }
-      }
-      
-      const startTime = Date.now();
-      const response = await fetch(url, options);
-      const endTime = Date.now();
-      const responseTime = endTime - startTime;
-      
-      const responseText = await response.text();
-      const responseHeaders = Object.fromEntries(response.headers.entries());
-      
-      // Update response display
-      container.querySelector('#responseStatus').textContent = `Status: ${response.status} ${response.statusText}`;
-      container.querySelector('#responseTime').textContent = `Time: ${responseTime}ms`;
-      container.querySelector('#responseSize').textContent = `Size: ${responseText.length} bytes`;
-      
-      container.querySelector('#responseBody').textContent = responseText;
-      container.querySelector('#responseHeaders').textContent = JSON.stringify(responseHeaders, null, 2);
-      container.querySelector('#responseTiming').textContent = JSON.stringify({
-        responseTime: responseTime + 'ms',
-        timestamp: new Date(startTime).toISOString(),
-        url: url,
-        method: method
-      }, null, 2);
-      
-      showSuccess(`Request completed: ${response.status}`);
-      
-    } catch (error) {
-      showError('Request failed: ' + error.message);
-      container.querySelector('#responseBody').textContent = 'Error: ' + error.message;
-    }
+      renderEntries();
+      updateMonitorStats();
+    });
+    observer.observe({ type: 'resource', buffered: false });
+
+    container.querySelector('#ntStartMon').disabled = true;
+    container.querySelector('#ntStopMon').disabled = false;
+    container.querySelector('#ntStatus').textContent = 'Active';
+    container.querySelector('#ntStatus').style.color = 'var(--ganj-success, #059669)';
+
+    durationTimer = setInterval(() => {
+      const s = Math.round((Date.now() - monitorStart) / 1000);
+      container.querySelector('#ntDuration').textContent = s < 60 ? `${s}s` : `${Math.floor(s/60)}m ${s%60}s`;
+    }, 1000);
+
+    renderEntries();
+    updateMonitorStats();
   }
 
-  function updateRequestList() {
-    const urlFilter = container.querySelector('#filterUrl').value.toLowerCase();
-    const methodFilter = container.querySelector('#filterMethod').value;
-    const statusFilter = container.querySelector('#filterStatus').value;
-    
-    let filtered = requestHistory.filter(req => {
-      if (urlFilter && !req.url.toLowerCase().includes(urlFilter)) return false;
-      if (methodFilter && req.method !== methodFilter) return false;
-      if (statusFilter) {
-        const status = req.status;
-        if (statusFilter === '2xx' && (status < 200 || status >= 300)) return false;
-        if (statusFilter === '3xx' && (status < 300 || status >= 400)) return false;
-        if (statusFilter === '4xx' && (status < 400 || status >= 500)) return false;
-        if (statusFilter === '5xx' && status < 500) return false;
-      }
+  function stopMonitor() {
+    isMonitoring = false;
+    if (observer) { observer.disconnect(); observer = null; }
+    clearInterval(durationTimer);
+
+    container.querySelector('#ntStartMon').disabled = false;
+    container.querySelector('#ntStopMon').disabled = true;
+    container.querySelector('#ntStatus').textContent = 'Stopped';
+    container.querySelector('#ntStatus').style.color = '';
+  }
+
+  function renderEntries() {
+    const urlFilter = (container.querySelector('#ntFilterUrl')?.value || '').toLowerCase();
+    const typeFilter = container.querySelector('#ntFilterType')?.value || '';
+    const list = container.querySelector('#ntRequestList');
+
+    let filtered = entries.filter(e => {
+      if (urlFilter && !e.url.toLowerCase().includes(urlFilter)) return false;
+      if (typeFilter && e.type !== typeFilter) return false;
       return true;
     });
-    
-    const requestList = container.querySelector('#requestList');
-    
-    if (filtered.length === 0) {
-      requestList.innerHTML = '<div class="no-requests">No requests match your filters</div>';
+
+    if (!filtered.length) {
+      list.innerHTML = `<div class="no-data">${isMonitoring ? 'Waiting for requests...' : 'No requests recorded.'}</div>`;
       return;
     }
-    
-    requestList.innerHTML = filtered.slice(-50).reverse().map(req => `
-      <div class="request-item">
+
+    list.innerHTML = filtered.slice(-100).reverse().map(e => {
+      const domain = (() => { try { return new URL(e.url).hostname; } catch { return ''; } })();
+      const shortUrl = e.url.length > 80 ? e.url.substring(0, 80) + '...' : e.url;
+      const sizeStr = e.size > 1024 ? `${(e.size/1024).toFixed(1)}KB` : e.size > 0 ? `${e.size}B` : '';
+      const badge = e.type === 'xmlhttprequest' ? 'XHR' : e.type === 'fetch' ? 'FETCH' : e.type.toUpperCase();
+      const color = { xmlhttprequest: '#2563eb', fetch: '#2563eb', script: '#7c3aed', css: '#059669', img: '#d97706', font: '#64748b' }[e.type] || '#94a3b8';
+      return `<div class="request-item">
         <div class="request-header">
-          <span class="request-method ${req.method.toLowerCase()}">${req.method}</span>
-          <span class="request-status status-${Math.floor(req.status / 100)}xx">${req.status || 'ERR'}</span>
-          <span class="request-time">${req.responseTime}ms</span>
-          <span class="request-timestamp">${new Date(req.timestamp).toLocaleTimeString()}</span>
+          <span class="request-method" style="background:${color}!important;">${badge}</span>
+          <span class="request-time">${e.duration}ms</span>
+          ${sizeStr ? `<span class="request-time">${sizeStr}</span>` : ''}
+          ${e.protocol ? `<span class="request-time">${e.protocol}</span>` : ''}
         </div>
-        <div class="request-url">${escapeHtml(req.url)}</div>
-        ${req.error ? `<div class="request-error">Error: ${escapeHtml(req.error)}</div>` : ''}
-      </div>
-    `).join('');
+        <div class="request-url" title="${escapeHtml(e.url)}">${escapeHtml(shortUrl)}</div>
+      </div>`;
+    }).join('');
   }
 
-  function updateStats() {
-    const totalRequests = requestHistory.length;
-    const monitoringStatus = isMonitoring ? 'Active' : 'Stopped';
-    
-    let duration = '0s';
-    if (monitoringStart) {
-      const elapsed = Math.floor((Date.now() - monitoringStart) / 1000);
-      duration = elapsed < 60 ? `${elapsed}s` : `${Math.floor(elapsed / 60)}m ${elapsed % 60}s`;
+  function updateMonitorStats() {
+    container.querySelector('#ntTotal').textContent = entries.length;
+    if (entries.length) {
+      const avg = entries.reduce((s, e) => s + e.duration, 0) / entries.length;
+      container.querySelector('#ntAvg').textContent = `${Math.round(avg)}ms`;
     }
-    
-    container.querySelector('#totalRequests').textContent = totalRequests;
-    container.querySelector('#monitoringStatus').textContent = monitoringStatus;
-    container.querySelector('#monitoringDuration').textContent = duration;
   }
 
-  function updateAnalysis() {
-    if (requestHistory.length === 0) {
-      container.querySelector('#methodChart').innerHTML = '<div class="no-data">No data</div>';
-      container.querySelector('#statusChart').innerHTML = '<div class="no-data">No data</div>';
-      container.querySelector('#domainChart').innerHTML = '<div class="no-data">No data</div>';
-      container.querySelector('#timingChart').innerHTML = '<div class="no-data">No data</div>';
+  // ---- API Tester (routes through background.js to bypass CORS) ----
+
+  async function sendRequest() {
+    const method = container.querySelector('#ntMethod').value;
+    const url = container.querySelector('#ntUrl').value.trim();
+    if (!url) return;
+
+    const headers = {};
+    container.querySelectorAll('#ntHeaders .header-row').forEach(r => {
+      const k = r.querySelector('.header-key')?.value.trim();
+      const v = r.querySelector('.header-value')?.value.trim();
+      if (k && v) headers[k] = v;
+    });
+
+    const opts = { method, headers };
+    if (['POST', 'PUT', 'PATCH'].includes(method)) {
+      const body = container.querySelector('#ntBody').value.trim();
+      if (body) {
+        opts.body = body;
+        if (!headers['Content-Type']) opts.headers['Content-Type'] = 'application/json';
+      }
+    }
+
+    const resDiv = container.querySelector('#ntResponse');
+    resDiv.innerHTML = '<div class="no-data">Sending...</div>';
+
+    const res = await bgFetch(url, opts);
+
+    if (res.error) {
+      resDiv.innerHTML = `<div class="tool-result error"><strong>Error:</strong> ${escapeHtml(res.error)}<br>Time: ${res.time}ms</div>`;
       return;
     }
-    
-    // Method distribution
-    const methodCounts = {};
-    requestHistory.forEach(req => {
-      methodCounts[req.method] = (methodCounts[req.method] || 0) + 1;
-    });
-    
-    container.querySelector('#methodChart').innerHTML = Object.entries(methodCounts)
-      .map(([method, count]) => `<div class="chart-bar"><span>${method}</span><span>${count}</span></div>`)
-      .join('');
-    
-    // Status distribution
-    const statusCounts = {};
-    requestHistory.forEach(req => {
-      const statusGroup = Math.floor(req.status / 100) + 'xx';
-      statusCounts[statusGroup] = (statusCounts[statusGroup] || 0) + 1;
-    });
-    
-    container.querySelector('#statusChart').innerHTML = Object.entries(statusCounts)
-      .map(([status, count]) => `<div class="chart-bar"><span>${status}</span><span>${count}</span></div>`)
-      .join('');
-    
-    // Domain distribution
-    const domainCounts = {};
-    requestHistory.forEach(req => {
-      try {
-        const domain = new URL(req.url).hostname;
-        domainCounts[domain] = (domainCounts[domain] || 0) + 1;
-      } catch (e) {
-        domainCounts['Unknown'] = (domainCounts['Unknown'] || 0) + 1;
-      }
-    });
-    
-    container.querySelector('#domainChart').innerHTML = Object.entries(domainCounts)
-      .slice(0, 5)
-      .map(([domain, count]) => `<div class="chart-bar"><span>${domain}</span><span>${count}</span></div>`)
-      .join('');
-    
-    // Timing analysis
-    const avgTime = requestHistory.reduce((sum, req) => sum + req.responseTime, 0) / requestHistory.length;
-    const maxTime = Math.max(...requestHistory.map(req => req.responseTime));
-    const minTime = Math.min(...requestHistory.map(req => req.responseTime));
-    
-    container.querySelector('#timingChart').innerHTML = `
-      <div class="chart-bar"><span>Average</span><span>${Math.round(avgTime)}ms</span></div>
-      <div class="chart-bar"><span>Max</span><span>${maxTime}ms</span></div>
-      <div class="chart-bar"><span>Min</span><span>${minTime}ms</span></div>
+
+    let bodyDisplay = res.body;
+    try { bodyDisplay = JSON.stringify(JSON.parse(res.body), null, 2); } catch {}
+
+    const statusColor = res.status < 300 ? 'var(--ganj-success,#059669)' : res.status < 400 ? '#2563eb' : 'var(--ganj-error,#dc2626)';
+
+    resDiv.innerHTML = `
+      <div style="display:flex;gap:16px;margin-bottom:10px;font-size:13px;flex-wrap:wrap;">
+        <span style="font-weight:700;color:${statusColor};">${res.status} ${res.statusText}</span>
+        <span>${res.time}ms</span>
+        <span>${(res.body?.length || 0).toLocaleString()} bytes</span>
+      </div>
+      <div style="margin-bottom:8px;">
+        <details open>
+          <summary style="cursor:pointer;font-weight:600;font-size:13px;margin-bottom:6px;">Response Body</summary>
+          <pre style="background:#0f172a;color:#e2e8f0;padding:14px;border-radius:8px;font-size:13px;overflow:auto;max-height:300px;line-height:1.5;margin:0;">${escapeHtml(bodyDisplay)}</pre>
+        </details>
+      </div>
+      <details>
+        <summary style="cursor:pointer;font-weight:600;font-size:13px;margin-bottom:6px;">Response Headers</summary>
+        <pre style="background:#0f172a;color:#e2e8f0;padding:14px;border-radius:8px;font-size:13px;overflow:auto;max-height:200px;line-height:1.5;margin:0;">${escapeHtml(JSON.stringify(res.headers, null, 2))}</pre>
+      </details>
     `;
-    
-    generateInsights();
   }
 
-  function generateInsights() {
-    const insights = [];
-    
-    if (requestHistory.length === 0) {
-      insights.push('Start monitoring to generate insights');
-    } else {
-      const avgResponseTime = requestHistory.reduce((sum, req) => sum + req.responseTime, 0) / requestHistory.length;
-      const slowRequests = requestHistory.filter(req => req.responseTime > 1000).length;
-      const errorRequests = requestHistory.filter(req => req.status >= 400).length;
-      
-      if (avgResponseTime > 500) {
-        insights.push(`⚠️ High average response time: ${Math.round(avgResponseTime)}ms`);
-      }
-      
-      if (slowRequests > 0) {
-        insights.push(`🐌 ${slowRequests} requests took over 1 second`);
-      }
-      
-      if (errorRequests > 0) {
-        insights.push(`❌ ${errorRequests} requests returned errors`);
-      }
-      
-      if (insights.length === 0) {
-        insights.push('✅ Network performance looks good!');
-      }
-    }
-    
-    container.querySelector('#insightsList').innerHTML = insights
-      .map(insight => `<div class="insight">${insight}</div>`)
-      .join('');
-  }
+  // ---- Tools ----
 
-  // Tool functions
-  function pingHost() {
-    const host = container.querySelector('#pingHost').value.trim();
+  async function pingHost() {
+    const host = container.querySelector('#ntPingHost').value.trim();
     if (!host) return;
-    
-    // Simulate ping using a simple HTTP request
-    fetch(`https://${host}`, { method: 'HEAD', mode: 'no-cors' })
-      .then(() => {
-        container.querySelector('#pingResult').innerHTML = `
-          <div class="tool-result">
-            ✅ ${escapeHtml(host)} appears to be reachable
-          </div>
-        `;
-      })
-      .catch(() => {
-        container.querySelector('#pingResult').innerHTML = `
-          <div class="tool-result">
-            ❌ ${escapeHtml(host)} may not be reachable or blocks requests
-          </div>
-        `;
-      });
-  }
+    const el = container.querySelector('#ntPingResult');
+    el.innerHTML = '<div class="tool-result">Pinging...</div>';
 
-  function analyzeUrl() {
-    const url = container.querySelector('#urlAnalyze').value.trim();
-    if (!url) return;
-    
-    try {
-      const urlObj = new URL(url);
-      const analysis = {
-        protocol: urlObj.protocol,
-        hostname: urlObj.hostname,
-        port: urlObj.port || (urlObj.protocol === 'https:' ? '443' : '80'),
-        pathname: urlObj.pathname,
-        search: urlObj.search,
-        hash: urlObj.hash
-      };
-      
-      container.querySelector('#urlResult').innerHTML = `
-        <div class="tool-result">
-          <strong>URL Analysis:</strong><br>
-          ${Object.entries(analysis).map(([key, value]) => 
-            `${key}: ${escapeHtml(value) || 'N/A'}`
-          ).join('<br>')}
-        </div>
-      `;
-    } catch (error) {
-      container.querySelector('#urlResult').innerHTML = `
-        <div class="tool-result error">Invalid URL: ${error.message}</div>
-      `;
+    const times = [];
+    for (let i = 0; i < 3; i++) {
+      const res = await bgFetch(`https://${host}`, { method: 'HEAD' });
+      times.push(res.error ? null : res.time);
+    }
+
+    const valid = times.filter(t => t !== null);
+    if (!valid.length) {
+      el.innerHTML = `<div class="tool-result error">❌ ${escapeHtml(host)} — unreachable or blocks HEAD requests</div>`;
+    } else {
+      const avg = Math.round(valid.reduce((a, b) => a + b, 0) / valid.length);
+      const min = Math.min(...valid);
+      const max = Math.max(...valid);
+      el.innerHTML = `<div class="tool-result">✅ ${escapeHtml(host)}<br>Avg: ${avg}ms · Min: ${min}ms · Max: ${max}ms · ${valid.length}/3 successful</div>`;
     }
   }
 
   async function checkHeaders() {
-    const url = container.querySelector('#headersUrl').value.trim();
+    const url = container.querySelector('#ntHeadersUrl').value.trim();
     if (!url) return;
-    
+    const el = container.querySelector('#ntHeadersResult');
+    el.innerHTML = '<div class="tool-result">Fetching...</div>';
+
+    const res = await bgFetch(url, { method: 'HEAD' });
+    if (res.error) {
+      el.innerHTML = `<div class="tool-result error">Error: ${escapeHtml(res.error)}</div>`;
+      return;
+    }
+
+    const h = res.headers;
+    const secHeaders = ['content-security-policy', 'strict-transport-security', 'x-frame-options', 'x-content-type-options', 'referrer-policy', 'permissions-policy'];
+    const rows = Object.entries(h).map(([k, v]) => {
+      const isSec = secHeaders.includes(k.toLowerCase());
+      return `<div style="display:flex;gap:8px;padding:4px 0;border-bottom:1px solid var(--ganj-border,#e2e8f0);font-size:12px;">
+        <span style="font-weight:600;min-width:200px;color:${isSec ? 'var(--ganj-primary,#2563eb)' : 'var(--ganj-text,#1e293b)'};">${escapeHtml(k)}</span>
+        <span style="word-break:break-all;color:var(--ganj-text-secondary,#475569);">${escapeHtml(v)}</span>
+      </div>`;
+    }).join('');
+
+    el.innerHTML = `<div class="tool-result"><strong>${res.status} ${res.statusText}</strong> · ${res.time}ms<div style="margin-top:8px;">${rows}</div></div>`;
+  }
+
+  function analyzeUrl() {
+    const raw = container.querySelector('#ntAnalyzeUrl').value.trim();
+    if (!raw) return;
+    const el = container.querySelector('#ntAnalyzeResult');
     try {
-      const response = await fetch(url, { method: 'HEAD' });
-      const headers = Object.fromEntries(response.headers.entries());
-      
-      container.querySelector('#headersResult').innerHTML = `
-        <div class="tool-result">
-          <strong>HTTP Headers for ${escapeHtml(url)}:</strong><br>
-          <pre>${JSON.stringify(headers, null, 2)}</pre>
+      const u = new URL(raw);
+      const params = [...u.searchParams.entries()];
+      el.innerHTML = `<div class="tool-result">
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12px;">
+          <strong>Protocol</strong><span>${u.protocol}</span>
+          <strong>Host</strong><span>${u.hostname}</span>
+          <strong>Port</strong><span>${u.port || (u.protocol === 'https:' ? '443' : '80')}</span>
+          <strong>Path</strong><span>${u.pathname}</span>
+          ${u.hash ? `<strong>Hash</strong><span>${u.hash}</span>` : ''}
+          ${params.length ? `<strong>Params</strong><span>${params.length}</span>` : ''}
         </div>
-      `;
-    } catch (error) {
-      container.querySelector('#headersResult').innerHTML = `
-        <div class="tool-result error">Error: ${error.message}</div>
-      `;
+        ${params.length ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--ganj-border,#e2e8f0);">
+          ${params.map(([k, v]) => `<div style="font-size:12px;"><strong>${escapeHtml(k)}</strong> = ${escapeHtml(v)}</div>`).join('')}
+        </div>` : ''}
+      </div>`;
+    } catch (err) {
+      el.innerHTML = `<div class="tool-result error">Invalid URL: ${escapeHtml(err.message)}</div>`;
     }
   }
 
-  async function performanceTest() {
-    const url = container.querySelector('#perfUrl').value.trim();
-    const requests = parseInt(container.querySelector('#perfRequests').value) || 5;
-    
+  async function perfTest() {
+    const url = container.querySelector('#ntPerfUrl').value.trim();
+    const count = Math.min(parseInt(container.querySelector('#ntPerfCount').value) || 5, 20);
     if (!url) return;
-    
-    container.querySelector('#perfResult').innerHTML = '<div class="tool-result">Running performance test...</div>';
-    
-    const results = [];
-    
-    for (let i = 0; i < Math.min(requests, 10); i++) {
-      const start = Date.now();
-      try {
-        await fetch(url, { cache: 'no-cache' });
-        results.push(Date.now() - start);
-      } catch (error) {
-        results.push(null);
-      }
+    const el = container.querySelector('#ntPerfResult');
+    el.innerHTML = '<div class="tool-result">Running...</div>';
+
+    const times = [];
+    for (let i = 0; i < count; i++) {
+      const res = await bgFetch(url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now(), { method: 'GET' });
+      times.push(res.error ? null : res.time);
     }
-    
-    const validResults = results.filter(r => r !== null);
-    if (validResults.length === 0) {
-      container.querySelector('#perfResult').innerHTML = '<div class="tool-result error">All requests failed</div>';
+
+    const valid = times.filter(t => t !== null);
+    if (!valid.length) {
+      el.innerHTML = '<div class="tool-result error">All requests failed</div>';
       return;
     }
-    
-    const avg = validResults.reduce((a, b) => a + b, 0) / validResults.length;
-    const min = Math.min(...validResults);
-    const max = Math.max(...validResults);
-    
-    container.querySelector('#perfResult').innerHTML = `
-      <div class="tool-result">
-        <strong>Performance Test Results:</strong><br>
-        Requests: ${validResults.length}/${requests}<br>
-        Average: ${Math.round(avg)}ms<br>
-        Min: ${min}ms<br>
-        Max: ${max}ms
+
+    const avg = Math.round(valid.reduce((a, b) => a + b, 0) / valid.length);
+    const min = Math.min(...valid);
+    const max = Math.max(...valid);
+    const p95 = valid.sort((a, b) => a - b)[Math.floor(valid.length * 0.95)] || max;
+
+    el.innerHTML = `<div class="tool-result">
+      <strong>Results:</strong> ${valid.length}/${count} OK<br>
+      Avg: ${avg}ms · Min: ${min}ms · Max: ${max}ms · P95: ${p95}ms
+    </div>`;
+  }
+
+  // ---- Security Scan ----
+
+  async function runSecurityScan() {
+    const el = container.querySelector('#ntSecurityResults');
+    el.innerHTML = '<div class="no-data">Scanning...</div>';
+
+    const url = window.location.href;
+    const res = await bgFetch(url, { method: 'GET' });
+    const h = res.headers || {};
+
+    const checks = [];
+
+    function check(pass, label, detail) {
+      checks.push({ pass, label, detail });
+    }
+
+    check(window.location.protocol === 'https:', 'HTTPS', window.location.protocol === 'https:' ? 'Connection is encrypted' : 'Page served over insecure HTTP');
+    check(!!h['strict-transport-security'], 'HSTS', h['strict-transport-security'] || 'Missing Strict-Transport-Security header');
+    check(!!h['content-security-policy'], 'CSP', h['content-security-policy'] ? 'Policy: ' + h['content-security-policy'].substring(0, 100) + '...' : 'Missing Content-Security-Policy header');
+    check(!!h['x-frame-options'] || (h['content-security-policy'] || '').includes('frame-ancestors'), 'Clickjacking Protection', h['x-frame-options'] || 'Missing X-Frame-Options / frame-ancestors');
+    check(h['x-content-type-options'] === 'nosniff', 'MIME Sniffing', h['x-content-type-options'] || 'Missing X-Content-Type-Options: nosniff');
+    check(!!h['referrer-policy'], 'Referrer Policy', h['referrer-policy'] || 'Missing Referrer-Policy header');
+    check(!!h['permissions-policy'] || !!h['feature-policy'], 'Permissions Policy', h['permissions-policy'] || h['feature-policy'] || 'Missing Permissions-Policy header');
+
+    const mixedContent = document.querySelectorAll('img[src^="http:"], script[src^="http:"], link[href^="http:"]');
+    check(mixedContent.length === 0, 'Mixed Content', mixedContent.length === 0 ? 'No mixed content found' : `${mixedContent.length} insecure resource(s) found`);
+
+    const cookies = document.cookie;
+    check(true, 'Cookies', cookies ? `${cookies.split(';').length} cookie(s) accessible via JS (HttpOnly cookies are hidden)` : 'No JS-accessible cookies');
+
+    const forms = document.querySelectorAll('form:not([action^="https"])');
+    const insecureForms = [...forms].filter(f => f.action && f.action.startsWith('http:'));
+    check(insecureForms.length === 0, 'Form Security', insecureForms.length === 0 ? 'All forms use secure endpoints' : `${insecureForms.length} form(s) submit over HTTP`);
+
+    const passCount = checks.filter(c => c.pass).length;
+    const score = Math.round((passCount / checks.length) * 100);
+    const scoreColor = score >= 80 ? 'var(--ganj-success,#059669)' : score >= 50 ? 'var(--ganj-warning,#d97706)' : 'var(--ganj-error,#dc2626)';
+
+    el.innerHTML = `
+      <div style="text-align:center;margin-bottom:16px;">
+        <div style="font-size:36px;font-weight:700;color:${scoreColor};">${score}%</div>
+        <div style="font-size:13px;color:var(--ganj-text-muted,#64748b);">${passCount}/${checks.length} checks passed</div>
       </div>
+      ${checks.map(c => `
+        <div style="display:flex;gap:10px;padding:10px;border:1px solid var(--ganj-border,#e2e8f0);border-radius:8px;margin-bottom:6px;align-items:flex-start;background:${c.pass ? 'var(--ganj-bg-alt,#f8fafc)' : 'var(--ganj-error-light,#fee2e2)'};">
+          <span style="font-size:16px;flex-shrink:0;">${c.pass ? '✅' : '❌'}</span>
+          <div>
+            <div style="font-weight:600;font-size:13px;color:var(--ganj-text,#1e293b);">${c.label}</div>
+            <div style="font-size:12px;color:var(--ganj-text-muted,#64748b);word-break:break-all;">${escapeHtml(c.detail)}</div>
+          </div>
+        </div>
+      `).join('')}
     `;
   }
 
-  function clearHistory() {
-    if (!confirm('Clear all request history?')) return;
-    
-    requestHistory = [];
-    saveRequestHistory();
-    updateRequestList();
-    updateStats();
-    updateAnalysis();
-    showSuccess('Request history cleared');
-  }
-
-  function exportRequests() {
-    if (requestHistory.length === 0) {
-      showError('No requests to export');
-      return;
-    }
-    
-    const data = JSON.stringify(requestHistory, null, 2);
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `network-requests-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    
-    showSuccess('Request history exported');
-  }
-
-  function loadRequestHistory() {
-    const stored = localStorage.getItem('ganj-network-tools-history');
-    if (stored) {
-      try {
-        requestHistory = JSON.parse(stored);
-      } catch (e) {
-        requestHistory = [];
-      }
-    }
-  }
-
-  function saveRequestHistory() {
-    // Keep only last 1000 requests
-    if (requestHistory.length > 1000) {
-      requestHistory = requestHistory.slice(-1000);
-    }
-    localStorage.setItem('ganj-network-tools-history', JSON.stringify(requestHistory));
-  }
-
-  function showSuccess(message) {
-    const notification = document.createElement('div');
-    notification.textContent = '✅ ' + message;
-    notification.style.cssText = `
-      position: fixed !important;
-      top: 20px !important;
-      right: 20px !important;
-      background: #10b981 !important;
-      color: white !important;
-      padding: 12px 20px !important;
-      border-radius: 6px !important;
-      z-index: 1000000 !important;
-      font-size: 14px !important;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-    `;
-    document.body.appendChild(notification);
-    setTimeout(() => notification.remove(), 3000);
-  }
-
-  function showError(message) {
-    const notification = document.createElement('div');
-    notification.textContent = '❌ ' + message;
-    notification.style.cssText = `
-      position: fixed !important;
-      top: 20px !important;
-      right: 20px !important;
-      background: #ef4444 !important;
-      color: white !important;
-      padding: 12px 20px !important;
-      border-radius: 6px !important;
-      z-index: 1000000 !important;
-      font-size: 14px !important;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-    `;
-    document.body.appendChild(notification);
-    setTimeout(() => notification.remove(), 4000);
-  }
-
-  function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
+  // ---- Shared ----
 
   function show() {
-    if (!container) createInterface();
+    createUI();
     container.classList.remove('hidden');
     isVisible = true;
   }
@@ -861,20 +538,11 @@ const NetworkTools = (() => {
     isVisible = false;
   }
 
-  function toggle() {
-    isVisible ? hide() : show();
-  }
+  function toggle() { isVisible ? hide() : show(); }
 
-  return { 
-    init, show, hide, toggle,
-    pingHost, analyzeUrl, checkHeaders, performanceTest
-  };
+  return { init, show, hide, toggle };
 })();
 
 window.NetworkTools = NetworkTools;
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', NetworkTools.init);
-} else {
-  NetworkTools.init();
-}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', NetworkTools.init);
+else NetworkTools.init();
