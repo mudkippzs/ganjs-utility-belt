@@ -625,6 +625,31 @@ a:focus-visible {
   margin-bottom: 4px;
 }
 
+/* ===== COLLAPSIBLE SECTIONS ===== */
+.section-toggle {
+  cursor: pointer;
+  user-select: none;
+}
+
+.section-toggle:hover {
+  color: var(--primary);
+}
+
+.chevron {
+  font-size: 12px;
+  float: right;
+  color: var(--gray-400);
+  transition: var(--transition);
+}
+
+.empty-state {
+  text-align: center;
+  color: var(--gray-400);
+  font-size: 13px;
+  padding: 12px;
+  font-style: italic;
+}
+
 .footer {
   margin-top: 16px;
   padding-top: 16px;

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ganj's Toolbelt</title>
+  <title>Ganj's Utility Belt</title>
   <link rel="stylesheet" href="styles.css">
   <script src="modules/tabSetSaver.js"></script>
   <script src="modules/pomodoro.js"></script>
@@ -11,94 +11,90 @@
 </head>
 <body>
   <h1>🛠️ Ganj's Utility Belt</h1>
-  
-  <!-- Quick Actions -->
-  <div class="section" id="quickActionsSection">
-    <h2>🚀 Quick Actions</h2>
-    <button id="openQuickActions" class="feature-btn">🚀 Quick Actions Hub</button>
-    <div class="shortcut-hint">Ctrl+Shift+Q</div>
-  </div>
 
-  <!-- Developer Tools -->
-  <div class="section" id="devToolsSection">
-    <h2>💻 Developer Tools</h2>
-    <div class="tool-grid">
-      <button id="openCSSEditor" class="tool-btn">🎨 CSS Live Editor</button>
-      <button id="openJSEditor" class="tool-btn">💻 JS Code Runner</button>
-      <button id="openCrossTabSearch" class="tool-btn">🔍 Cross-Tab Search</button>
-      <button id="openColorTools" class="tool-btn">🎨 Color Tools</button>
-      <button id="openNetworkTools" class="tool-btn">🌐 Network Tools</button>
-      <button id="openDataTools" class="tool-btn">📊 Data Tools</button>
-    </div>
-    <div class="shortcut-hints">
-      <span>Ctrl+Shift+C • Ctrl+Shift+J • Ctrl+Shift+F • Ctrl+Shift+P • Ctrl+Shift+N • Ctrl+Shift+D</span>
+  <div class="section collapsible" id="quickActionsSection">
+    <h2 class="section-toggle">🚀 Quick Actions <span class="chevron">▾</span></h2>
+    <div class="section-body">
+      <button id="openQuickActions" class="feature-btn">🚀 Quick Actions Hub</button>
+      <div class="shortcut-hint">Ctrl+Shift+Q</div>
     </div>
   </div>
 
-  <!-- Productivity Tools -->
-  <div class="section" id="productivitySection">
-    <h2>⚡ Productivity</h2>
-    <div class="tool-grid">
-      <button id="openAutoRefresh" class="tool-btn">⏱️ Smart Auto-Refresh</button>
-      <button id="openTextTools" class="tool-btn">📝 Text Tools</button>
-      <button id="openScreenshot" class="tool-btn">📸 Screenshot Tools</button>
-      <button id="openRedirector" class="tool-btn">🔄 URL Redirector</button>
-    </div>
-    <div class="shortcut-hints">
-      <span>Ctrl+Shift+T • Ctrl+Shift+S</span>
-    </div>
-  </div>
-
-  <!-- Image Tools -->
-  <div class="section" id="imageToolsSection">
-    <h2>🖼️ Image Tools</h2>
-    <button id="toggleImageMagnifier" class="tool-btn">🔍 Image Magnifier</button>
-    <div class="shortcut-hint">Ctrl+Shift+M</div>
-  </div>
-
-  <!-- Tab Management -->
-  <div class="section" id="tabManagementSection">
-    <h2>🗃️ Tab Management</h2>  
-    <div class="tool-grid">
-      <button id="groupTabs">📦 Group Tabs</button>
-      <button id="ungroupTabs">🧹 Ungroup Tabs</button>
-    </div>
-  </div>
-  
-  <div class="section" id="tabSetsSection">
-    <h2>📂 Tab Sets</h2>
-    <form id="saveForm">
-      <input type="text" id="setName" placeholder="Set name" required />
-      <button type="submit">💾 Save</button>
-    </form>
-    <div id="setsContainer"></div>
-  </div>
-
-  <!-- Pomodoro Timer -->
-  <div class="section" id="pomodoroSection">
-    <h2>⏱️ Pomodoro Focus</h2>
-    <input id="pomodoroTask" type="text" placeholder="What are you focusing on?" />
-    <div id="pomodoroControls">
-      <div id="pomodoroTimer">25:00</div>
-      <button id="pomodoroStart">▶️ Start Focus</button>
-      <button id="pomodoroCancel" style="display: none;">🛑 Cancel</button>
-      <div class="pomodoro-options">
-        <label>
-          <input type="checkbox" id="toggleFloatingTimer" /> Show Floating Timer
-        </label>
-        <label>
-          <input type="checkbox" id="toggleAutoFocus" /> Auto-start Next Focus
-        </label>
-        <button id="testNotifications">🔔 Test Notifications</button>
-        <button id="viewReport">📊 View Focus Report</button>
+  <div class="section collapsible" id="devToolsSection">
+    <h2 class="section-toggle">💻 Developer Tools <span class="chevron">▾</span></h2>
+    <div class="section-body">
+      <div class="tool-grid">
+        <button id="openCSSEditor" class="tool-btn">🎨 CSS Editor</button>
+        <button id="openJSEditor" class="tool-btn">💻 JS Runner</button>
+        <button id="openCrossTabSearch" class="tool-btn">🔍 Tab Search</button>
+        <button id="openColorTools" class="tool-btn">🎨 Color Tools</button>
+        <button id="openNetworkTools" class="tool-btn">🌐 Network</button>
+        <button id="openDataTools" class="tool-btn">📊 Data Tools</button>
       </div>
     </div>
   </div>
 
-  <!-- Footer -->
+  <div class="section collapsible" id="productivitySection">
+    <h2 class="section-toggle">⚡ Productivity <span class="chevron">▾</span></h2>
+    <div class="section-body">
+      <div class="tool-grid">
+        <button id="openAutoRefresh" class="tool-btn">⏱️ Auto-Refresh</button>
+        <button id="openTextTools" class="tool-btn">📝 Text Tools</button>
+        <button id="openScreenshot" class="tool-btn">📸 Screenshot</button>
+        <button id="openRedirector" class="tool-btn">🔄 Redirector</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section collapsible" id="imageToolsSection">
+    <h2 class="section-toggle">🖼️ Image Tools <span class="chevron">▾</span></h2>
+    <div class="section-body">
+      <button id="toggleImageMagnifier" class="tool-btn">🔍 Image Magnifier</button>
+      <div class="shortcut-hint">Ctrl+Shift+M</div>
+    </div>
+  </div>
+
+  <div class="section collapsible" id="tabManagementSection">
+    <h2 class="section-toggle">🗃️ Tab Management <span class="chevron">▾</span></h2>
+    <div class="section-body">
+      <div class="tool-grid">
+        <button id="groupTabs">📦 Group Tabs</button>
+        <button id="ungroupTabs">🧹 Ungroup Tabs</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section collapsible" id="tabSetsSection">
+    <h2 class="section-toggle">📂 Tab Sets <span class="chevron">▾</span></h2>
+    <div class="section-body">
+      <form id="saveForm">
+        <input type="text" id="setName" placeholder="Set name" required />
+        <button type="submit">💾 Save</button>
+      </form>
+      <div id="setsContainer"></div>
+    </div>
+  </div>
+
+  <div class="section collapsible" id="pomodoroSection">
+    <h2 class="section-toggle">⏱️ Pomodoro Focus <span class="chevron">▾</span></h2>
+    <div class="section-body">
+      <input id="pomodoroTask" type="text" placeholder="What are you focusing on?" />
+      <div id="pomodoroControls">
+        <div id="pomodoroTimer">25:00</div>
+        <button id="pomodoroStart">▶️ Start Focus</button>
+        <button id="pomodoroCancel" style="display: none;">🛑 Cancel</button>
+        <div class="pomodoro-options">
+          <label><input type="checkbox" id="toggleFloatingTimer" /> Floating Timer</label>
+          <label><input type="checkbox" id="toggleAutoFocus" /> Auto-start Next</label>
+          <button id="testNotifications">🔔 Test</button>
+          <button id="viewReport">📊 Report</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="footer">
     <a href="options.html" target="_blank">⚙️ Options</a>
-    <div id="status"></div>
   </div>
 </body>
 </html>

@@ -1,139 +1,282 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Extension Options</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ganj's Utility Belt - Options</title>
   <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      font-family: 'Segoe UI', Roboto, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: #f5f7fa;
-      color: #333;
-      padding: 30px;
-      max-width: 700px;
+      color: #1f2937;
+      padding: 24px;
+      max-width: 720px;
       margin: auto;
+      line-height: 1.5;
     }
 
     h1 {
       font-size: 24px;
-      margin-bottom: 20px;
-      text-align: center;
-      color: #2c3e50;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
+    .subtitle { font-size: 14px; color: #6b7280; margin-bottom: 24px; }
 
     section {
       background: #fff;
-      border-radius: 10px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-      padding: 20px 25px;
-      margin-bottom: 30px;
-      transition: box-shadow 0.2s ease;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      padding: 20px 24px;
+      margin-bottom: 20px;
+      border: 1px solid #e5e7eb;
     }
+    section:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
 
-    section:hover {
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+    h2 { font-size: 16px; margin-bottom: 16px; color: #374151; display: flex; align-items: center; gap: 8px; }
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid #f3f4f6;
     }
+    .setting-row:last-child { border-bottom: none; }
 
-    h2 {
-      font-size: 18px;
-      margin-bottom: 15px;
-      color: #34495e;
-    }
+    .setting-label { font-size: 14px; color: #374151; }
+    .setting-desc { font-size: 12px; color: #9ca3af; margin-top: 2px; }
 
-    label {
-      display: block;
-      margin: 10px 0;
+    select, input[type="number"] {
+      padding: 6px 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
       font-size: 14px;
+      background: white;
+      min-width: 80px;
     }
+    select:focus, input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.1); }
 
-    select,
-    input[type="checkbox"] {
-      margin-left: 10px;
-      font-size: 14px;
+    .toggle {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      flex-shrink: 0;
     }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: #d1d5db;
+      border-radius: 12px;
+      transition: 0.2s;
+    }
+    .toggle-slider:before {
+      content: "";
+      position: absolute;
+      height: 18px; width: 18px;
+      left: 3px; bottom: 3px;
+      background: white;
+      border-radius: 50%;
+      transition: 0.2s;
+    }
+    .toggle input:checked + .toggle-slider { background: #3b82f6; }
+    .toggle input:checked + .toggle-slider:before { transform: translateX(20px); }
 
     button {
       padding: 10px 16px;
       font-size: 14px;
-      background-color: #3498db;
+      background: #3b82f6;
       color: white;
       border: none;
-      border-radius: 6px;
+      border-radius: 8px;
       cursor: pointer;
-      transition: background-color 0.2s ease, transform 0.1s ease;
+      transition: background 0.2s;
     }
+    button:hover { background: #2563eb; }
+    button.secondary { background: #6b7280; }
+    button.secondary:hover { background: #4b5563; }
+    button.danger { background: #ef4444; }
+    button.danger:hover { background: #dc2626; }
 
-    button:hover {
-      background-color: #2980b9;
-    }
+    .btn-row { display: flex; gap: 8px; margin-top: 12px; }
 
-    button:active {
-      transform: scale(0.97);
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #10b981;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      transform: translateY(80px);
+      opacity: 0;
+      transition: all 0.3s ease;
+      z-index: 1000;
     }
+    .toast.visible { transform: translateY(0); opacity: 1; }
 
     @media (prefers-color-scheme: dark) {
-      body {
-        background: #1e1e1e;
-        color: #ddd;
-      }
-
-      section {
-        background: #2c2c2c;
-        box-shadow: 0 2px 6px rgba(255, 255, 255, 0.04);
-      }
-
-      h1, h2 {
-        color: #eee;
-      }
-
-      label {
-        color: #ccc;
-      }
-
-      button {
-        background-color: #2980b9;
-      }
-
-      button:hover {
-        background-color: #2471a3;
-      }
+      body { background: #111827; color: #f3f4f6; }
+      section { background: #1f2937; border-color: #374151; }
+      h2 { color: #e5e7eb; }
+      .setting-label { color: #e5e7eb; }
+      .setting-desc { color: #6b7280; }
+      .setting-row { border-color: #374151; }
+      select, input[type="number"] { background: #374151; border-color: #4b5563; color: #f3f4f6; }
     }
   </style>
 </head>
 <body>
-  <h1>Sticky Notes Options</h1>
+  <h1>⚙️ Ganj's Utility Belt</h1>
+  <p class="subtitle">Extension settings and preferences</p>
 
+  <!-- Pomodoro Settings -->
   <section>
-    <h2>Preferences</h2>
-    <label>
-      Enable:
-      <input type="checkbox" id="enableSticky">
-    </label>
-    <label>
-      Theme:
+    <h2>⏱️ Pomodoro Timer</h2>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Focus Duration</div>
+        <div class="setting-desc">Length of each focus session</div>
+      </div>
+      <select id="focusDuration">
+        <option value="300000">5 min</option>
+        <option value="900000">15 min</option>
+        <option value="1500000" selected>25 min</option>
+        <option value="1800000">30 min</option>
+        <option value="2700000">45 min</option>
+        <option value="3000000">50 min</option>
+        <option value="3600000">60 min</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Short Break</div>
+        <div class="setting-desc">Break between focus sessions</div>
+      </div>
+      <select id="shortBreakDuration">
+        <option value="60000">1 min</option>
+        <option value="180000">3 min</option>
+        <option value="300000" selected>5 min</option>
+        <option value="600000">10 min</option>
+        <option value="900000">15 min</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Long Break</div>
+        <div class="setting-desc">Break after completing a set of sessions</div>
+      </div>
+      <select id="longBreakDuration">
+        <option value="600000">10 min</option>
+        <option value="900000" selected>15 min</option>
+        <option value="1200000">20 min</option>
+        <option value="1800000">30 min</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Auto-start Next Focus</div>
+        <div class="setting-desc">Automatically begin next focus after break</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="autoStartNextFocus">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Floating Timer</div>
+        <div class="setting-desc">Show timer overlay on pages during focus</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="showFloatingTimer" checked>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  </section>
+
+  <!-- Tab Management -->
+  <section>
+    <h2>🗃️ Tab Management</h2>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Auto-group New Tabs</div>
+        <div class="setting-desc">Automatically group new tabs by domain</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="autoGroupTabs">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  </section>
+
+  <!-- Sticky Notes -->
+  <section>
+    <h2>📝 Sticky Notes</h2>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Enable Sticky Notes</div>
+        <div class="setting-desc">Show sticky notes on pages</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="enableSticky" checked>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Default Color</div>
+      </div>
       <select id="noteTheme">
         <option value="#fffae6">Yellow</option>
         <option value="#e6faff">Blue</option>
         <option value="#e6ffe6">Green</option>
         <option value="#fff0f5">Pink</option>
       </select>
-    </label>
-    <label>
-      Font:
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Default Font</div>
+      </div>
       <select id="noteFont">
         <option value="Arial">Arial</option>
         <option value="Courier New">Courier</option>
         <option value="Georgia">Georgia</option>
         <option value="Times New Roman">Times</option>
       </select>
-    </label>
+    </div>
   </section>
 
+  <!-- Data Management -->
   <section>
-    <h2>Export Notes</h2>
-    <p style="font-size: 13px; color: #666; margin-bottom: 12px;">
-      Download all your notes as a JSON backup file.
-    </p>
-    <button id="exportNotes">Export All Notes to JSON</button>
+    <h2>💾 Data Management</h2>
+    <div class="btn-row">
+      <button id="exportNotes">Export Notes (JSON)</button>
+      <button id="exportPomodoro">Export Focus Log (CSV)</button>
+      <button id="clearPomodoro" class="danger">Clear Focus History</button>
+    </div>
   </section>
+
+  <!-- Keyboard Shortcuts Reference -->
+  <section>
+    <h2>⌨️ Keyboard Shortcuts</h2>
+    <div class="setting-row"><div class="setting-label">Quick Actions Hub</div><div class="setting-desc">Ctrl+Shift+Q</div></div>
+    <div class="setting-row"><div class="setting-label">CSS Live Editor</div><div class="setting-desc">Ctrl+Shift+C</div></div>
+    <div class="setting-row"><div class="setting-label">JS Code Runner</div><div class="setting-desc">Ctrl+Shift+J</div></div>
+    <div class="setting-row"><div class="setting-label">Cross-Tab Search</div><div class="setting-desc">Ctrl+Shift+F</div></div>
+    <div class="setting-row"><div class="setting-label">Screenshot Tools</div><div class="setting-desc">Ctrl+Shift+S</div></div>
+    <div class="setting-row"><div class="setting-label">Image Magnifier</div><div class="setting-desc">Ctrl+Shift+M</div></div>
+  </section>
+
+  <div id="toast" class="toast">Settings saved</div>
 
   <script src="options.js"></script>
 </body>

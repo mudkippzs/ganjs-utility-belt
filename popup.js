@@ -8,6 +8,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let countdownInterval = null;
 
+  // --- Collapsible sections ---
+  chrome.storage.sync.get(['collapsedSections'], (res) => {
+    const collapsed = res.collapsedSections || [];
+    document.querySelectorAll('.section.collapsible').forEach(section => {
+      const toggle = section.querySelector('.section-toggle');
+      const body = section.querySelector('.section-body');
+      const chevron = section.querySelector('.chevron');
+
+      if (collapsed.includes(section.id)) {
+        body.style.display = 'none';
+        chevron.textContent = '▸';
+      }
+
+      toggle.addEventListener('click', () => {
+        const isCollapsed = body.style.display === 'none';
+        body.style.display = isCollapsed ? '' : 'none';
+        chevron.textContent = isCollapsed ? '▾' : '▸';
+
+        chrome.storage.sync.get(['collapsedSections'], (r) => {
+          let list = r.collapsedSections || [];
+          if (isCollapsed) {
+            list = list.filter(id => id !== section.id);
+          } else {
+            list.push(section.id);
+          }
+          chrome.storage.sync.set({ collapsedSections: list });
+        });
+      });
+    });
+  });
+
   // --- Settings restore ---
   chrome.storage.sync.get(['showFloatingTimer', 'autoStartNextFocus'], (res) => {
     toggleFloatingTimer.checked = res.showFloatingTimer !== false;
