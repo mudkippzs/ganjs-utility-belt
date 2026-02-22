@@ -235,6 +235,126 @@ document.addEventListener('DOMContentLoaded', () => {
       ]
     };
 
+    if (hostname.includes('4chan.org') || hostname.includes('4channel.org')) return {
+      name: '4chan', icon: '🍀',
+      tools: [
+        { id: 'ch-dlall', icon: '💾', label: 'Save All', desc: 'Download all images/webms in thread',
+          script: () => {
+            const files = [...document.querySelectorAll('.fileThumb, a.fileThumb')].map(a => {
+              const href = a.href;
+              return href && /\.(jpg|png|gif|webm|mp4)/i.test(href) ? href : null;
+            }).filter(Boolean);
+            if (!files.length) { alert('No files found'); return; }
+            files.forEach((src, i) => {
+              setTimeout(() => {
+                const a = document.createElement('a');
+                a.href = src;
+                a.download = src.split('/').pop();
+                a.click();
+              }, i * 300);
+            });
+            alert(`Downloading ${files.length} files...`);
+          }},
+        { id: 'ch-webm', icon: '🎬', label: 'WebMs Only', desc: 'Download only webm/mp4 files',
+          script: () => {
+            const files = [...document.querySelectorAll('.fileThumb, a.fileThumb')].map(a => a.href).filter(h => h && /\.(webm|mp4)/i.test(h));
+            if (!files.length) { alert('No webm/mp4 files found'); return; }
+            files.forEach((src, i) => {
+              setTimeout(() => { const a = document.createElement('a'); a.href = src; a.download = src.split('/').pop(); a.click(); }, i * 500);
+            });
+            alert(`Downloading ${files.length} video files...`);
+          }},
+        { id: 'ch-links', icon: '🔗', label: 'Copy Links', desc: 'Copy all file URLs',
+          script: () => {
+            const files = [...document.querySelectorAll('.fileThumb, a.fileThumb')].map(a => a.href).filter(Boolean);
+            navigator.clipboard.writeText(files.join('\n')).then(() => alert(`Copied ${files.length} file links`));
+          }},
+        { id: 'ch-expand', icon: '🖼️', label: 'Expand All', desc: 'Expand all images inline',
+          script: () => {
+            let n = 0;
+            document.querySelectorAll('.fileThumb img[data-md5], a.fileThumb img').forEach(img => {
+              if (img.classList.contains('expanded-thumb')) return;
+              const full = img.closest('.fileThumb')?.href;
+              if (full && /\.(jpg|png|gif)/i.test(full)) {
+                img.src = full;
+                img.style.maxWidth = '100%';
+                img.style.height = 'auto';
+                img.classList.add('expanded-thumb');
+                n++;
+              }
+            });
+            alert(`Expanded ${n} images`);
+          }},
+        { id: 'ch-collapse', icon: '📂', label: 'Collapse All', desc: 'Restore thumbnails',
+          script: () => {
+            document.querySelectorAll('.expanded-thumb').forEach(img => {
+              const thumb = img.getAttribute('data-thumb-src') || img.closest('.fileThumb')?.querySelector('img[src*="/s/"]')?.getAttribute('src');
+              if (thumb) img.src = thumb;
+              img.style.maxWidth = '';
+              img.style.height = '';
+              img.classList.remove('expanded-thumb');
+            });
+          }},
+        { id: 'ch-gallery', icon: '🔲', label: 'Gallery', desc: 'View all images in a grid gallery',
+          script: () => {
+            const files = [...document.querySelectorAll('.fileThumb, a.fileThumb')].map(a => a.href).filter(h => h && /\.(jpg|png|gif|webm)/i.test(h));
+            if (!files.length) { alert('No files found'); return; }
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.95);z-index:999999;overflow:auto;padding:20px;';
+            const close = document.createElement('button');
+            close.textContent = '✕ Close';
+            close.style.cssText = 'position:fixed;top:10px;right:20px;z-index:1000000;background:#dc2626;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:14px;';
+            close.onclick = () => overlay.remove();
+            overlay.appendChild(close);
+            const grid = document.createElement('div');
+            grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;padding-top:40px;';
+            files.forEach(src => {
+              const item = document.createElement('div');
+              item.style.cssText = 'border-radius:6px;overflow:hidden;cursor:pointer;background:#1e293b;';
+              if (/\.(webm|mp4)/i.test(src)) {
+                item.innerHTML = `<video src="${src}" style="width:100%;display:block;" preload="metadata" muted></video>`;
+                item.querySelector('video').addEventListener('mouseenter', function() { this.play(); });
+                item.querySelector('video').addEventListener('mouseleave', function() { this.pause(); this.currentTime = 0; });
+              } else {
+                item.innerHTML = `<img src="${src}" style="width:100%;display:block;" loading="lazy">`;
+              }
+              item.addEventListener('click', () => { window.open(src, '_blank'); });
+              grid.appendChild(item);
+            });
+            const count = document.createElement('div');
+            count.textContent = `${files.length} files`;
+            count.style.cssText = 'position:fixed;top:14px;left:20px;color:white;font-size:14px;z-index:1000000;font-family:sans-serif;';
+            overlay.appendChild(count);
+            overlay.appendChild(grid);
+            document.body.appendChild(overlay);
+            document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', esc); } });
+          }},
+        { id: 'ch-text', icon: '📋', label: 'Copy Thread', desc: 'Copy all post text in thread',
+          script: () => {
+            const posts = [...document.querySelectorAll('.postMessage, blockquote.postMessage')].map((p, i) => {
+              const id = p.closest('.post, .postContainer')?.id || `post-${i}`;
+              return `>> ${id}\n${p.innerText.trim()}`;
+            });
+            navigator.clipboard.writeText(posts.join('\n\n')).then(() => alert(`Copied ${posts.length} posts`));
+          }},
+        { id: 'ch-dead', icon: '💀', label: 'Dead Links', desc: 'Highlight dead quote links',
+          script: () => {
+            const postIds = new Set([...document.querySelectorAll('.post, .postContainer')].map(p => p.id.replace('pc', '').replace('p', '')));
+            let n = 0;
+            document.querySelectorAll('.quotelink').forEach(a => {
+              const target = a.textContent.replace('>>', '').trim();
+              if (target && !postIds.has(target) && !a.href.includes('#p')) {
+                a.style.color = '#dc2626';
+                a.style.textDecoration = 'line-through';
+                a.title = 'Dead link';
+                n++;
+              }
+            });
+            alert(`Found ${n} dead quote links`);
+          }},
+      ]
+    };
+
     return null;
   }
 
