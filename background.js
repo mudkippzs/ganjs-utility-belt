@@ -400,6 +400,21 @@ const messageHandlers = {
         }
       });
     });
+  },
+
+  injectScripts(message, sender, sendResponse) {
+    if (!sender.tab?.id || !Array.isArray(message.files)) return;
+    chrome.scripting.executeScript({
+      target: { tabId: sender.tab.id },
+      files: message.files
+    }, () => {
+      if (chrome.runtime.lastError) {
+        sendResponse({ error: chrome.runtime.lastError.message });
+      } else {
+        sendResponse({ ok: true });
+      }
+    });
+    return true;
   }
 };
 

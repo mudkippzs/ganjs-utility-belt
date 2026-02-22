@@ -11,21 +11,17 @@ const JSEditor = (() => {
 
   function loadAce() {
     if (aceLoaded) return Promise.resolve();
-    return new Promise((resolve, reject) => {
-      const base = chrome.runtime.getURL('libs/ace/');
-      const script = document.createElement('script');
-      script.src = chrome.runtime.getURL('libs/ace/ace.js');
-      script.onload = () => {
-        ace.config.set('basePath', base);
-        aceLoaded = true;
-        const bs = document.createElement('script');
-        bs.src = chrome.runtime.getURL('libs/beautify.js');
-        bs.onload = resolve;
-        bs.onerror = resolve;
-        document.head.appendChild(bs);
-      };
-      script.onerror = reject;
-      document.head.appendChild(script);
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage({
+        action: 'injectScripts',
+        files: ['libs/ace/ace.js', 'libs/ace/ext-language_tools.js', 'libs/beautify.js']
+      }, () => {
+        if (typeof ace !== 'undefined') {
+          ace.config.set('basePath', chrome.runtime.getURL('libs/ace/'));
+          aceLoaded = true;
+        }
+        resolve();
+      });
     });
   }
 
@@ -91,6 +87,7 @@ const JSEditor = (() => {
     aceEditor = ace.edit('jsAceContainer');
     aceEditor.setTheme('ace/theme/one_dark');
     aceEditor.session.setMode('ace/mode/javascript');
+    aceEditor.session.setUseWorker(false);
     aceEditor.setOptions({
       fontSize: '14px',
       fontFamily: "'SF Mono','Cascadia Code','Fira Code','Monaco','Courier New',monospace",
@@ -332,9 +329,13 @@ const JSEditor = (() => {
     createEditor();
     container.classList.remove('hidden');
     isVisible = true;
-    if (!aceLoaded) {
+    if (!aceEditor) {
       status('Loading editor...');
       await loadAce();
+      if (typeof ace === 'undefined') {
+        status('Failed to load editor — check extension permissions', 'error');
+        return;
+      }
       initAce();
       status('Ready');
     }

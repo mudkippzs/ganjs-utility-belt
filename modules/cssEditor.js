@@ -18,21 +18,17 @@ const CSSEditor = (() => {
 
   function loadAce() {
     if (aceLoaded) return Promise.resolve();
-    return new Promise((resolve, reject) => {
-      const base = chrome.runtime.getURL('libs/ace/');
-      const script = document.createElement('script');
-      script.src = chrome.runtime.getURL('libs/ace/ace.js');
-      script.onload = () => {
-        ace.config.set('basePath', base);
-        aceLoaded = true;
-        const bs = document.createElement('script');
-        bs.src = chrome.runtime.getURL('libs/beautify-css.js');
-        bs.onload = resolve;
-        bs.onerror = resolve;
-        document.head.appendChild(bs);
-      };
-      script.onerror = reject;
-      document.head.appendChild(script);
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage({
+        action: 'injectScripts',
+        files: ['libs/ace/ace.js', 'libs/ace/ext-language_tools.js', 'libs/beautify-css.js']
+      }, () => {
+        if (typeof ace !== 'undefined') {
+          ace.config.set('basePath', chrome.runtime.getURL('libs/ace/'));
+          aceLoaded = true;
+        }
+        resolve();
+      });
     });
   }
 
@@ -92,6 +88,7 @@ const CSSEditor = (() => {
     aceEditor = ace.edit('cssAceContainer');
     aceEditor.setTheme('ace/theme/one_dark');
     aceEditor.session.setMode('ace/mode/css');
+    aceEditor.session.setUseWorker(false);
     aceEditor.setOptions({
       fontSize: '14px',
       fontFamily: "'SF Mono','Cascadia Code','Fira Code','Monaco','Courier New',monospace",
@@ -112,6 +109,7 @@ const CSSEditor = (() => {
     const extractedEditor = ace.edit('extractedAceContainer');
     extractedEditor.setTheme('ace/theme/one_dark');
     extractedEditor.session.setMode('ace/mode/css');
+    extractedEditor.session.setUseWorker(false);
     extractedEditor.setOptions({ fontSize: '14px', showPrintMargin: false, readOnly: true, wrap: true });
     container._extractedEditor = extractedEditor;
 
@@ -300,9 +298,13 @@ const CSSEditor = (() => {
     createEditor();
     container.classList.remove('hidden');
     isVisible = true;
-    if (!aceLoaded) {
+    if (!aceEditor) {
       status('Loading editor...');
       await loadAce();
+      if (typeof ace === 'undefined') {
+        status('Failed to load editor — check extension permissions', 'error');
+        return;
+      }
       initAce();
       status('Ready');
     }
