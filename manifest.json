@@ -22,8 +22,7 @@
     "permissions": [
         "alarms", "tabs", "tabGroups", "scripting",
         "storage", "activeTab", "contextMenus", "notifications",
-        "clipboardWrite", "clipboardRead", "desktopCapture", "bookmarks",
-        "webNavigation"
+        "clipboardWrite", "bookmarks"
     ],
     "options_page": "options.html",
     "content_scripts": [{

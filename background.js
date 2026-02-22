@@ -1,14 +1,10 @@
 function getDisplayNameFromDomain(hostname) {
   const multiPartTLDs = ['co.uk', 'org.uk', 'gov.uk', 'ac.uk', 'com.au', 'co.in'];
   const parts = hostname.split('.');
-
   if (parts.length < 2) return hostname;
 
   const tld = parts.slice(-2).join('.');
-  const tld3 = parts.slice(-3).join('.');
-
-  let domain = '';
-  let sub = '';
+  let domain, sub;
 
   if (multiPartTLDs.includes(tld)) {
     domain = parts.slice(-3, -2)[0];
@@ -27,6 +23,27 @@ function getDisplayNameFromDomain(hostname) {
 
   return capitalizedSub ? `${capitalizedDomain} - ${capitalizedSub}` : capitalizedDomain;
 }
+
+function safeHostname(url) {
+  try { return new URL(url).hostname; }
+  catch { return null; }
+}
+
+function isWebUrl(url) {
+  return url && /^https?:\/\//.test(url);
+}
+
+function notify(id, title, message) {
+  chrome.notifications.create(id + '-' + Date.now(), {
+    type: 'basic',
+    iconUrl: 'icon.png',
+    title,
+    message,
+    priority: 2
+  });
+}
+
+// --- Pomodoro alarm ---
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name !== 'pomodoroTimer') return;
@@ -49,66 +66,34 @@ chrome.alarms.onAlarm.addListener((alarm) => {
           task: state.task || ''
         });
 
-        const breakStart = Date.now();
-        const breakEnd = breakStart + breakDuration;
-
+        const breakEnd = Date.now() + breakDuration;
         chrome.storage.local.set({
           pomodoroLogs: logs,
-          pomodoroState: {
-            type: 'break',
-            startTime: breakStart,
-            endTime: breakEnd,
-            task: ''
-          },
+          pomodoroState: { type: 'break', startTime: Date.now(), endTime: breakEnd, task: '' },
           pomodoroPaused: false,
           pomodoroRemaining: null
         }, () => {
           chrome.alarms.clear('pomodoroTimer', () => {
             chrome.alarms.create('pomodoroTimer', { when: breakEnd });
-            chrome.notifications.create('focusComplete-' + Date.now(), {
-              type: 'basic',
-              iconUrl: 'icon.png',
-              title: 'Focus Complete!',
-              message: 'Time to take a break!',
-              priority: 2
-            });
+            notify('focusComplete', 'Focus Complete!', 'Time to take a break!');
           });
         });
 
       } else if (state.type === 'break') {
         chrome.alarms.clear('pomodoroTimer', () => {
           if (autoStart) {
-            const focusStart = Date.now();
-            const focusEnd = focusStart + focusDuration;
-
+            const focusEnd = Date.now() + focusDuration;
             chrome.storage.local.set({
-              pomodoroState: {
-                type: 'focus',
-                startTime: focusStart,
-                endTime: focusEnd,
-                task: state.task || ''
-              },
+              pomodoroState: { type: 'focus', startTime: Date.now(), endTime: focusEnd, task: state.task || '' },
               pomodoroPaused: false,
               pomodoroRemaining: null
             }, () => {
               chrome.alarms.create('pomodoroTimer', { when: focusEnd });
-              chrome.notifications.create('breakComplete-' + Date.now(), {
-                type: 'basic',
-                iconUrl: 'icon.png',
-                title: 'Break Complete!',
-                message: 'Time to resume focus!',
-                priority: 2
-              });
+              notify('breakComplete', 'Break Complete!', 'Time to resume focus!');
             });
           } else {
             chrome.storage.local.remove(['pomodoroState', 'pomodoroPaused', 'pomodoroRemaining'], () => {
-              chrome.notifications.create('breakComplete-' + Date.now(), {
-                type: 'basic',
-                iconUrl: 'icon.png',
-                title: 'Break Complete!',
-                message: 'Time to resume focus or start a new session!',
-                priority: 2
-              });
+              notify('breakComplete', 'Break Complete!', 'Time to resume focus or start a new session!');
             });
           }
         });
@@ -117,161 +102,43 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   });
 });
 
+// --- Installation ---
+
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
-    id: "createStickyNote",
-    title: "Create Sticky Note Here",
-    contexts: ["page", "selection"]
+    id: 'createStickyNote',
+    title: 'Create Sticky Note Here',
+    contexts: ['page', 'selection']
   });
-  // Initialize showFloatingTimer default
+
   chrome.storage.sync.get(['showFloatingTimer'], (res) => {
     if (res.showFloatingTimer === undefined) {
       chrome.storage.sync.set({ showFloatingTimer: true });
-      console.log('[Background] Initialized showFloatingTimer to true');
     }
   });
-  
-  // Initialize default redirect rules
+
   chrome.storage.local.get(['redirectRules'], (result) => {
     if (!result.redirectRules) {
       chrome.storage.local.set({ redirectRules: [] });
-      console.log('[Background] Initialized empty redirect rules');
     }
   });
 });
 
-// ===== URL REDIRECTOR SUPPORT =====
-
-// Early redirect interception
-chrome.webNavigation.onBeforeRequest.addListener(
-  (details) => {
-    if (details.frameId !== 0) return; // Only main frame
-    
-    checkAndRedirect(details.url, details.tabId);
-  },
-  { url: [{ urlMatches: 'https?://.*' }] },
-  ['blocking']
-);
-
-async function checkAndRedirect(currentUrl, tabId) {
-  try {
-    const result = await chrome.storage.local.get(['redirectRules']);
-    const redirectRules = result.redirectRules || [];
-    
-    console.log('[Background Redirector] Checking URL:', currentUrl);
-    
-    for (const rule of redirectRules) {
-      if (!rule.enabled) continue;
-      
-      const matchResult = matchPattern(rule.fromPattern, currentUrl);
-      
-      if (matchResult.matches) {
-        const targetUrl = replacePlaceholders(rule.toUrl, matchResult.captures);
-        
-        // Enhanced loop prevention
-        if (targetUrl === currentUrl) {
-          console.log('[Background Redirector] Skipping redirect to same URL');
-          continue;
-        }
-        
-        // Check if target would also match the pattern (loop detection)
-        const loopCheck = matchPattern(rule.fromPattern, targetUrl);
-        if (loopCheck.matches) {
-          console.log('[Background Redirector] Loop detected, disabling rule:', rule.fromPattern);
-          rule.enabled = false;
-          await chrome.storage.local.set({ redirectRules: redirectRules });
-          
-          // Notify user about disabled rule
-          chrome.notifications.create(
-            'redirectLoop-' + Date.now(),
-            {
-              type: 'basic',
-              iconUrl: 'icon.png',
-              title: '🔄 Redirect Loop Prevented',
-              message: `Rule "${rule.fromPattern}" was disabled to prevent a redirect loop.`,
-              priority: 2
-            }
-          );
-          continue;
-        }
-        
-        // Check if we've recently redirected (prevent rapid redirects)
-        const now = Date.now();
-        if (rule.lastUsed && (now - new Date(rule.lastUsed).getTime()) < 5000) {
-          console.log('[Background Redirector] Recent redirect, skipping to prevent loops');
-          continue;
-        }
-        
-        rule.useCount++;
-        rule.lastUsed = new Date().toISOString();
-        await chrome.storage.local.set({ redirectRules: redirectRules });
-        
-        console.log('[Background Redirector] Redirecting:', currentUrl, '→', targetUrl);
-        
-        // Perform the redirect
-        chrome.tabs.update(tabId, { url: targetUrl });
-        break;
-      }
-    }
-  } catch (error) {
-    console.error('[Background Redirector] Error checking redirects:', error);
-  }
-}
-
-function matchPattern(pattern, url) {
-  try {
-    // Escape special regex characters except *
-    const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
-    // Replace * with non-greedy capturing group
-    const regexPattern = escaped.replace(/\*/g, '(.*?)');
-    const regex = new RegExp('^' + regexPattern + '$', 'i');
-    
-    const match = url.match(regex);
-    if (match) {
-      return {
-        matches: true,
-        captures: match.slice(1) // Remove full match, keep captures
-      };
-    }
-  } catch (error) {
-    console.error('[Background Redirector] Pattern error:', error);
-  }
-  
-  return { matches: false, captures: [] };
-}
-
-function replacePlaceholders(url, captures) {
-  let result = url;
-  
-  // Replace $1, $2, etc. with captured values
-  captures.forEach((capture, index) => {
-    result = result.replace(new RegExp(`\\$${index + 1}`, 'g'), capture);
-  });
-  
-  // If result doesn't start with http/https, try to make it absolute
-  if (!result.match(/^https?:\/\//)) {
-    // If it looks like a domain, add https://
-    if (result.match(/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)) {
-      result = 'https://' + result;
-    }
-  }
-  
-  return result;
-}
+// --- Context menu ---
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId !== 'createStickyNote') return;
-  if (!tab || !tab.id || !/^https?:\/\//.test(tab.url)) return;
+  if (!tab?.id || !isWebUrl(tab.url)) return;
 
   chrome.tabs.sendMessage(tab.id, { action: 'getClickPosition' }, (coords) => {
-    if (chrome.runtime.lastError) {
-      console.warn('Could not get click position:', chrome.runtime.lastError.message);
-      return;
-    }
+    if (chrome.runtime.lastError) return;
 
-    const pageUrl = new URL(tab.url);
-    pageUrl.hash = '';
-    const cleanUrl = pageUrl.toString();
+    let cleanUrl;
+    try {
+      const pageUrl = new URL(tab.url);
+      pageUrl.hash = '';
+      cleanUrl = pageUrl.toString();
+    } catch { return; }
 
     const noteData = {
       x: coords?.x || 100,
@@ -288,186 +155,258 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       stickyNotes.push(noteData);
       chrome.storage.local.set({ stickyNotes }, () => {
         chrome.tabs.sendMessage(tab.id, { action: 'restoreStickyNotes', notes: [noteData] }, () => {
-          if (chrome.runtime.lastError) {
-            console.warn('Sticky note injection failed:', chrome.runtime.lastError.message);
-          }
+          void chrome.runtime.lastError;
         });
       });
     });
   });
 });
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === 'deleteStickyNote' && message.id) {
+// --- Unified message handler ---
+
+let toastLeaderTabId = null;
+
+const messageHandlers = {
+  deleteStickyNote(message) {
+    if (!message.id) return;
     chrome.storage.local.get({ stickyNotes: [] }, ({ stickyNotes }) => {
-      const updated = stickyNotes.filter(n => n.id !== message.id);
-      chrome.storage.local.set({ stickyNotes: updated });
+      chrome.storage.local.set({ stickyNotes: stickyNotes.filter(n => n.id !== message.id) });
     });
-    return;
-  }
+  },
 
-  if (message.action === 'loadStickyNotes') {
+  loadStickyNotes(message, sender, sendResponse) {
     const url = sender?.tab?.url;
-    if (!url || !/^https?:\/\//.test(url)) return sendResponse({ notes: [] });
+    if (!url || !isWebUrl(url)) return sendResponse({ notes: [] });
 
-    const cleanUrl = new URL(url);
-    cleanUrl.hash = '';
-    const compareUrl = cleanUrl.toString();
+    let compareUrl;
+    try {
+      const parsed = new URL(url);
+      parsed.hash = '';
+      compareUrl = parsed.toString();
+    } catch { return sendResponse({ notes: [] }); }
 
     chrome.storage.local.get({ stickyNotes: [] }, ({ stickyNotes }) => {
-      const notes = stickyNotes.filter(n => n.url === compareUrl);
-      sendResponse({ notes });
+      sendResponse({ notes: stickyNotes.filter(n => n.url === compareUrl) });
     });
     return true;
-  }
+  },
 
-  if (message.action === 'groupTabs') {
+  groupTabs(message, sender, sendResponse) {
     chrome.tabs.query({ currentWindow: true }, async (tabs) => {
       const groups = {};
       for (const tab of tabs) {
-        if (!/^https?:\/\//.test(tab.url)) continue;
-        let domain;
-        try {
-          domain = new URL(tab.url).hostname;
-        } catch (e) {
-          domain = 'Unknown';
-        }
-        if (!groups[domain]) groups[domain] = [];
-        groups[domain].push(tab);
+        const hostname = safeHostname(tab.url);
+        if (!hostname) continue;
+        if (!groups[hostname]) groups[hostname] = [];
+        groups[hostname].push(tab);
       }
 
+      const colors = ['grey', 'blue', 'red', 'green', 'yellow', 'pink', 'purple', 'cyan'];
       for (const domain in groups) {
         const tabIds = groups[domain].map(t => t.id);
-        const groupId = await chrome.tabs.group({ tabIds });
-        const colors = ['grey', 'blue', 'red', 'green', 'yellow', 'pink', 'purple', 'cyan'];
-        const nextColor = colors[Math.floor(Math.random() * colors.length)];
         try {
+          const groupId = await chrome.tabs.group({ tabIds });
           await chrome.tabGroups.update(groupId, {
             title: `${getDisplayNameFromDomain(domain)} (${tabIds.length})`,
             collapsed: true,
-            color: nextColor
+            color: colors[Math.floor(Math.random() * colors.length)]
           });
-        } catch (e) {
-          console.warn(`Failed to update tab group for domain ${domain}`, e);
-        }
+        } catch { /* tab may have been closed */ }
       }
       sendResponse({ success: true });
     });
     return true;
-  }
+  },
 
-  if (message.action === 'ungroupTabs') {
+  ungroupTabs(message, sender, sendResponse) {
     chrome.tabs.query({ currentWindow: true }, async (tabs) => {
-      const groupedTabs = tabs.filter(t => t.groupId !== chrome.tabGroups.TAB_GROUP_ID_NONE);
-      for (const tab of groupedTabs) {
-        try {
-          await chrome.tabs.ungroup(tab.id);
-        } catch (e) {
-          console.warn(`Failed to ungroup tab ${tab.id}`, e);
+      for (const tab of tabs) {
+        if (tab.groupId !== chrome.tabGroups.TAB_GROUP_ID_NONE) {
+          try { await chrome.tabs.ungroup(tab.id); } catch { /* ignore */ }
         }
       }
       sendResponse({ success: true });
     });
     return true;
-  }
+  },
 
-  if (message.action === 'openTabSet' && message.setName) {
+  openTabSet(message) {
+    if (!message.setName) return;
     chrome.storage.local.get(['tabSets'], (res) => {
       const urls = res.tabSets?.[message.setName] || [];
       urls.forEach((tab, i) => {
         setTimeout(() => chrome.tabs.create({ url: tab.url }), i * 150);
       });
     });
-  }
+  },
 
-  if (message.action === 'pomodoroToast') {
-    console.log('[Background] Received pomodoroToast message:', message.message);
-    chrome.notifications.create(
-      'pomodoroToast-' + Date.now(),
-      {
-        type: 'basic',
-        iconUrl: 'icon.png',
-        title: 'Pomodoro',
-        message: message.message,
-        priority: 2
-      },
-      () => {
-        if (chrome.runtime.lastError) {
-          console.error('[Background] Toast notification error:', chrome.runtime.lastError.message);
-        } else {
-          console.log('[Background] Toast notification created successfully:', message.message);
-        }
+  claimToastLeadership(message, sender, sendResponse) {
+    if (toastLeaderTabId === null || !sender.tab || sender.tab.id < toastLeaderTabId) {
+      toastLeaderTabId = sender.tab?.id ?? null;
+    }
+    sendResponse({ isLeader: toastLeaderTabId === sender.tab?.id });
+    return true;
+  },
+
+  pomodoroToast(message, sender) {
+    if (sender.tab && sender.tab.id !== toastLeaderTabId) return;
+    notify('pomodoroToast', 'Pomodoro', message.message);
+  },
+
+  testNotification() {
+    notify('test', 'Test Notification', 'This is a test notification.');
+  },
+
+  takeScreenshot(message, sender, sendResponse) {
+    chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
+      if (chrome.runtime.lastError) {
+        sendResponse({ error: chrome.runtime.lastError.message });
+      } else {
+        sendResponse({ dataUrl });
       }
-    );
-  }
+    });
+    return true;
+  },
 
-  // Add a test notification action for debugging
-  if (message.action === 'testNotification') {
-    console.log('[Background] Triggering test notification');
-    chrome.notifications.create(
-      'test-' + Date.now(),
-      {
-        type: 'basic',
-        iconUrl: 'icon.png',
-        title: 'Test Notification',
-        message: 'This is a test notification.',
-        priority: 2
-      },
-      () => {
+  captureVisible(message, sender, sendResponse) {
+    return messageHandlers.takeScreenshot(message, sender, sendResponse);
+  },
+
+  captureFullPage(message, sender, sendResponse) {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (!tabs[0]) return sendResponse({ error: 'No active tab' });
+      chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
         if (chrome.runtime.lastError) {
-          console.error('[Background] Test notification error:', chrome.runtime.lastError.message);
+          sendResponse({ error: chrome.runtime.lastError.message });
         } else {
-          console.log('[Background] Test notification created successfully');
+          sendResponse({ dataUrl, note: 'Full page capture requires scroll-and-stitch on the client side.' });
         }
-      }
-    );
-  }
-});
+      });
+    });
+    return true;
+  },
 
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && tab.url && /^https?:\/\//.test(tab.url)) {
-    const cleanUrl = new URL(tab.url);
-    cleanUrl.hash = '';
-    const compareUrl = cleanUrl.toString();
-    chrome.storage.local.get({ stickyNotes: [] }, ({ stickyNotes }) => {
-      const relevantNotes = stickyNotes.filter(n => n.url === compareUrl);
-      chrome.tabs.sendMessage(tabId, { action: 'restoreStickyNotes', notes: relevantNotes }, () => {
-        if (chrome.runtime.lastError) {
-          console.warn('Could not inject sticky notes:', chrome.runtime.lastError.message);
+  captureSelection(message, sender, sendResponse) {
+    chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
+      if (chrome.runtime.lastError) {
+        sendResponse({ error: chrome.runtime.lastError.message });
+      } else {
+        sendResponse({ dataUrl, selection: message.selection });
+      }
+    });
+    return true;
+  },
+
+  searchAllTabs(message, sender, sendResponse) {
+    searchAllTabs(message.query, message.options).then(results => {
+      sendResponse({ results });
+    }).catch(error => {
+      sendResponse({ error: error.message });
+    });
+    return true;
+  },
+
+  switchToTab(message) {
+    chrome.tabs.update(message.tabId, { active: true });
+    chrome.tabs.get(message.tabId, (tab) => {
+      if (tab) chrome.windows.update(tab.windowId, { focused: true });
+    });
+  },
+
+  jumpToMatch(message) {
+    chrome.tabs.update(message.tabId, { active: true }, () => {
+      chrome.scripting.executeScript({
+        target: { tabId: message.tabId },
+        func: highlightSearchTerm,
+        args: [message.query]
+      });
+    });
+  },
+
+  addBookmark(message) {
+    chrome.bookmarks.create({ title: message.title, url: message.url });
+  },
+
+  toggleJS() {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (!tabs[0]) return;
+      chrome.scripting.executeScript({
+        target: { tabId: tabs[0].id },
+        func: () => {
+          if (document.body.dataset.jsDisabled === 'true') {
+            document.body.dataset.jsDisabled = 'false';
+            location.reload();
+          } else {
+            document.body.dataset.jsDisabled = 'true';
+            document.querySelectorAll('script').forEach(s => s.remove());
+          }
         }
       });
     });
   }
+};
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  const handler = messageHandlers[message.action];
+  if (handler) {
+    return handler(message, sender, sendResponse);
+  }
 });
 
+// --- Tab events: sticky notes restore ---
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status !== 'complete' || !isWebUrl(tab.url)) return;
+
+  let compareUrl;
+  try {
+    const parsed = new URL(tab.url);
+    parsed.hash = '';
+    compareUrl = parsed.toString();
+  } catch { return; }
+
+  chrome.storage.local.get({ stickyNotes: [] }, ({ stickyNotes }) => {
+    const relevantNotes = stickyNotes.filter(n => n.url === compareUrl);
+    if (relevantNotes.length === 0) return;
+    chrome.tabs.sendMessage(tabId, { action: 'restoreStickyNotes', notes: relevantNotes }, () => {
+      void chrome.runtime.lastError;
+    });
+  });
+});
+
+// --- Tab events: auto-grouping (gated by setting) ---
+
 chrome.tabs.onCreated.addListener((tab) => {
-  if (!tab.url || !/^https?:\/\//.test(tab.url)) return;
-  const newHostname = new URL(tab.url).hostname;
+  chrome.storage.sync.get(['autoGroupTabs'], (res) => {
+    if (!res.autoGroupTabs) return;
 
-  chrome.tabGroups.query({}, (groups) => {
-    chrome.tabs.query({}, (allTabs) => {
-      for (const group of groups) {
-        const groupTabs = allTabs.filter(t => t.groupId === group.id);
-        if (groupTabs.length === 0) continue;
+    if (!isWebUrl(tab.url)) return;
+    const newHostname = safeHostname(tab.url);
+    if (!newHostname) return;
 
-        const exampleTab = groupTabs.find(t => t.url && /^https?:\/\//.test(t.url));
-        if (!exampleTab) continue;
+    chrome.tabGroups.query({}, (groups) => {
+      chrome.tabs.query({}, (allTabs) => {
+        for (const group of groups) {
+          const groupTabs = allTabs.filter(t => t.groupId === group.id);
+          const exampleTab = groupTabs.find(t => isWebUrl(t.url));
+          if (!exampleTab) continue;
 
-        const groupHostname = new URL(exampleTab.url).hostname;
-        if (groupHostname === newHostname) {
-          chrome.tabs.group({ tabIds: [tab.id], groupId: group.id });
-          return;
+          if (safeHostname(exampleTab.url) === newHostname) {
+            chrome.tabs.group({ tabIds: [tab.id], groupId: group.id }).catch(() => {});
+            return;
+          }
         }
-      }
 
-      chrome.tabs.group({ tabIds: [tab.id] }, async (groupId) => {
-        const groupTitle = `${getDisplayNameFromDomain(newHostname)} (1)`;
-        const colors = ['grey', 'blue', 'red', 'green', 'yellow', 'pink', 'purple', 'cyan'];
-        const nextColor = colors[Math.floor(Math.random() * colors.length)];
-        await chrome.tabGroups.update(groupId, {
-          title: groupTitle,
-          collapsed: true,
-          color: nextColor
+        chrome.tabs.group({ tabIds: [tab.id] }, async (groupId) => {
+          if (chrome.runtime.lastError) return;
+          const colors = ['grey', 'blue', 'red', 'green', 'yellow', 'pink', 'purple', 'cyan'];
+          try {
+            await chrome.tabGroups.update(groupId, {
+              title: `${getDisplayNameFromDomain(newHostname)} (1)`,
+              collapsed: true,
+              color: colors[Math.floor(Math.random() * colors.length)]
+            });
+          } catch { /* group may have been removed */ }
         });
       });
     });
@@ -477,222 +416,41 @@ chrome.tabs.onCreated.addListener((tab) => {
 chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
   if (removeInfo.isWindowClosing) return;
 
-  chrome.tabGroups.query({}, (groups) => {
-    groups.forEach((group) => {
-      chrome.tabs.query({ groupId: group.id }, (tabsInGroup) => {
-        if (tabsInGroup.length === 0) return;
+  chrome.storage.sync.get(['autoGroupTabs'], (res) => {
+    if (!res.autoGroupTabs) return;
 
-        const hostname = new URL(tabsInGroup[0].url).hostname;
-        const label = getDisplayNameFromDomain(hostname);
-        chrome.tabGroups.update(group.id, {
-          title: `${label} (${tabsInGroup.length})`
+    chrome.tabGroups.query({}, (groups) => {
+      groups.forEach((group) => {
+        chrome.tabs.query({ groupId: group.id }, (tabsInGroup) => {
+          if (tabsInGroup.length === 0) return;
+          const hostname = safeHostname(tabsInGroup[0].url);
+          if (!hostname) return;
+          try {
+            chrome.tabGroups.update(group.id, {
+              title: `${getDisplayNameFromDomain(hostname)} (${tabsInGroup.length})`
+            });
+          } catch { /* ignore */ }
         });
       });
     });
   });
 });
 
-let toastLeaderTabId = null;
+// --- Cross-tab search helpers (injected into pages) ---
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // Claim toast leader
-  if (message.action === 'claimToastLeadership') {
-    if (toastLeaderTabId === null || !sender.tab || sender.tab.id < toastLeaderTabId) {
-      toastLeaderTabId = sender.tab.id;
-      console.log('[Background] Toast leader assigned to tab:', toastLeaderTabId);
-    }
-    sendResponse({ isLeader: toastLeaderTabId === sender.tab.id });
-    return true;
-  }
-
-  // Toast request
-  if (message.action === 'pomodoroToast') {
-    if (sender.tab && sender.tab.id !== toastLeaderTabId) {
-      console.log('[Background] Ignoring toast from non-leader tab:', sender.tab.id);
-      return;
-    }
-
-    chrome.notifications.create(
-      'pomodoroToast-' + Date.now(),
-      {
-        type: 'basic',
-        iconUrl: 'icon.png',
-        title: 'Pomodoro',
-        message: message.message,
-        priority: 2
-      },
-      () => {
-        if (chrome.runtime.lastError) {
-          console.error('[Background] Toast notification error:', chrome.runtime.lastError.message);
-        } else {
-          console.log('[Background] Toast shown:', message.message);
-        }
-      }
-    );
-  }
-});
-
-// ===== NEW TOOL HANDLERS =====
-
-// Screenshot Tool Support
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('[Background] Received message:', request.action);
-
-  if (request.action === 'takeScreenshot' || request.action === 'captureVisible') {
-    chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
-      if (chrome.runtime.lastError) {
-        console.error('[Background] Screenshot error:', chrome.runtime.lastError.message);
-        sendResponse({ error: chrome.runtime.lastError.message });
-      } else {
-        console.log('[Background] Screenshot captured successfully');
-        sendResponse({ dataUrl: dataUrl });
-      }
-    });
-    return true; // Will respond asynchronously
-  }
-
-  if (request.action === 'captureFullPage') {
-    // For full page screenshots, we need to scroll and stitch
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      chrome.scripting.executeScript({
-        target: { tabId: tabs[0].id },
-        func: captureFullPageHelper
-      }, (results) => {
-        if (results && results[0]) {
-          sendResponse({ dataUrl: results[0].result });
-        } else {
-          sendResponse({ error: 'Failed to capture full page' });
-        }
-      });
-    });
-    return true;
-  }
-
-  if (request.action === 'captureSelection') {
-    chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
-      if (chrome.runtime.lastError) {
-        sendResponse({ error: chrome.runtime.lastError.message });
-      } else {
-        // Crop the image to the selection area
-        sendResponse({ dataUrl: dataUrl });
-      }
-    });
-    return true;
-  }
-
-  // Cross-Tab Search Support
-  if (request.action === 'searchAllTabs') {
-    searchAllTabs(request.query, request.options).then(results => {
-      sendResponse({ results: results });
-    }).catch(error => {
-      sendResponse({ error: error.message });
-    });
-    return true;
-  }
-
-  if (request.action === 'switchToTab') {
-    chrome.tabs.update(request.tabId, { active: true });
-    chrome.tabs.get(request.tabId, (tab) => {
-      chrome.windows.update(tab.windowId, { focused: true });
-    });
-  }
-
-  if (request.action === 'jumpToMatch') {
-    chrome.tabs.update(request.tabId, { active: true }, () => {
-      chrome.scripting.executeScript({
-        target: { tabId: request.tabId },
-        func: highlightSearchTerm,
-        args: [request.query]
-      });
-    });
-  }
-
-  // Quick Actions Support
-  if (request.action === 'addBookmark') {
-    chrome.bookmarks.create({
-      title: request.title,
-      url: request.url
-    }, (bookmark) => {
-      console.log('[Background] Bookmark created:', bookmark);
-    });
-  }
-
-  if (request.action === 'toggleJS') {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      chrome.scripting.executeScript({
-        target: { tabId: tabs[0].id },
-        func: () => {
-          // Simple JS toggle (this is limited, but works for demonstration)
-          const scripts = document.querySelectorAll('script');
-          if (document.body.dataset.jsDisabled === 'true') {
-            document.body.dataset.jsDisabled = 'false';
-            location.reload();
-          } else {
-            document.body.dataset.jsDisabled = 'true';
-            scripts.forEach(script => script.remove());
-          }
-        }
-      });
-    });
-  }
-});
-
-// Helper function for full page screenshot
-function captureFullPageHelper() {
-  return new Promise((resolve) => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    
-    // Get page dimensions
-    const width = Math.max(
-      document.body.scrollWidth,
-      document.body.offsetWidth,
-      document.documentElement.clientWidth,
-      document.documentElement.scrollWidth,
-      document.documentElement.offsetWidth
-    );
-    
-    const height = Math.max(
-      document.body.scrollHeight,
-      document.body.offsetHeight,
-      document.documentElement.clientHeight,
-      document.documentElement.scrollHeight,
-      document.documentElement.offsetHeight
-    );
-    
-    canvas.width = width;
-    canvas.height = height;
-    
-    // Use html2canvas if available, otherwise fallback to basic capture
-    if (typeof html2canvas !== 'undefined') {
-      html2canvas(document.body).then(canvas => {
-        resolve(canvas.toDataURL());
-      });
-    } else {
-      // Fallback: just capture current viewport
-      resolve(null);
-    }
-  });
-}
-
-// Cross-tab search functionality
 async function searchAllTabs(query, options) {
   const tabs = await chrome.tabs.query({});
   const results = [];
-  
+
   for (const tab of tabs) {
+    if (!isWebUrl(tab.url)) continue;
     try {
-      if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
-        continue; // Skip chrome internal pages
-      }
-      
       const searchResults = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
         func: searchInPage,
         args: [query, options]
       });
-      
-      if (searchResults && searchResults[0] && searchResults[0].result.length > 0) {
+      if (searchResults?.[0]?.result?.length > 0) {
         results.push({
           id: tab.id,
           title: tab.title,
@@ -701,81 +459,51 @@ async function searchAllTabs(query, options) {
           matches: searchResults[0].result
         });
       }
-    } catch (error) {
-      console.log(`[Background] Could not search tab ${tab.id}:`, error.message);
-    }
+    } catch { /* can't inject into some tabs */ }
   }
-  
   return results;
 }
 
-// Search function to be injected into pages
 function searchInPage(query, options) {
   const matches = [];
-  
   try {
     let pattern;
     if (options.useRegex) {
       pattern = new RegExp(query, options.caseSensitive ? 'g' : 'gi');
     } else {
-      const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const wordBoundary = options.wholeWords ? '\\b' : '';
-      pattern = new RegExp(`${wordBoundary}${escapedQuery}${wordBoundary}`, options.caseSensitive ? 'g' : 'gi');
+      const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const wb = options.wholeWords ? '\\b' : '';
+      pattern = new RegExp(`${wb}${escaped}${wb}`, options.caseSensitive ? 'g' : 'gi');
     }
-    
-    const walker = document.createTreeWalker(
-      document.body,
-      NodeFilter.SHOW_TEXT,
-      null,
-      false
-    );
-    
-    let node;
-    let lineNumber = 1;
-    
+
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+    let node, lineNumber = 1;
+
     while (node = walker.nextNode()) {
       const text = node.textContent;
       if (pattern.test(text)) {
-        const lines = text.split('\n');
-        lines.forEach((line, index) => {
+        text.split('\n').forEach((line, index) => {
           if (pattern.test(line)) {
-            matches.push({
-              line: lineNumber + index,
-              context: line.trim().substring(0, 200)
-            });
+            matches.push({ line: lineNumber + index, context: line.trim().substring(0, 200) });
           }
         });
       }
       lineNumber += text.split('\n').length - 1;
     }
-  } catch (error) {
-    console.error('Search error:', error);
-  }
-  
-  return matches.slice(0, 50); // Limit results
+  } catch { /* invalid regex */ }
+  return matches.slice(0, 50);
 }
 
-// Highlight search term function
 function highlightSearchTerm(query) {
-  // Remove existing highlights
   document.querySelectorAll('.ganj-search-highlight').forEach(el => {
     el.outerHTML = el.innerHTML;
   });
-  
-  // Add new highlights
-  const walker = document.createTreeWalker(
-    document.body,
-    NodeFilter.SHOW_TEXT,
-    null,
-    false
-  );
-  
+
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
   const textNodes = [];
   let node;
-  while (node = walker.nextNode()) {
-    textNodes.push(node);
-  }
-  
+  while (node = walker.nextNode()) textNodes.push(node);
+
   textNodes.forEach(textNode => {
     if (textNode.textContent.toLowerCase().includes(query.toLowerCase())) {
       const parent = textNode.parentNode;
@@ -787,12 +515,7 @@ function highlightSearchTerm(query) {
       parent.replaceChild(wrapper, textNode);
     }
   });
-  
-  // Scroll to first highlight
-  const firstHighlight = document.querySelector('.ganj-search-highlight');
-  if (firstHighlight) {
-    firstHighlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
-}
 
-console.log('[Background] New tool handlers loaded successfully');
+  const first = document.querySelector('.ganj-search-highlight');
+  if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
