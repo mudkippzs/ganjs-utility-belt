@@ -1,29 +1,47 @@
 /* ===== GANJ'S UTILITY BELT - CONTENT STYLES ===== */
 /* Injected into all pages via manifest content_scripts.css */
+/* Design tokens aligned with styles.css: dark intel/cyber palette + spacing */
 
 :root {
-  --ganj-primary: #2563eb;
-  --ganj-primary-hover: #1d4ed8;
-  --ganj-primary-light: #dbeafe;
-  --ganj-success: #059669;
-  --ganj-success-light: #d1fae5;
-  --ganj-warning: #d97706;
-  --ganj-warning-light: #fef3c7;
-  --ganj-error: #dc2626;
-  --ganj-error-light: #fee2e2;
-  --ganj-bg: #ffffff;
-  --ganj-bg-alt: #f8fafc;
-  --ganj-bg-inset: #f1f5f9;
-  --ganj-border: #e2e8f0;
-  --ganj-border-strong: #cbd5e1;
-  --ganj-text: #1e293b;
-  --ganj-text-secondary: #475569;
-  --ganj-text-muted: #64748b;
+  /* Background & surface (dark-first) */
+  --ganj-bg: #0c1222;
+  --ganj-bg-page: #111827;
+  --ganj-surface: #151b2d;
+  --ganj-surface-raised: #1e293b;
+  --ganj-bg-alt: #151b2d;
+  --ganj-bg-inset: #1e293b;
+  /* Borders */
+  --ganj-border: #2d3748;
+  --ganj-border-strong: #334155;
+  /* Accent (cyan/teal) */
+  --ganj-primary: #22d3ee;
+  --ganj-primary-hover: #06b6d4;
+  --ganj-primary-light: rgba(34, 211, 238, 0.2);
+  /* Semantic */
+  --ganj-success: #10b981;
+  --ganj-success-light: rgba(16, 185, 129, 0.2);
+  --ganj-warning: #f59e0b;
+  --ganj-warning-light: rgba(245, 158, 11, 0.2);
+  --ganj-error: #ef4444;
+  --ganj-error-light: rgba(239, 68, 68, 0.2);
+  /* Text */
+  --ganj-text: #f8fafc;
+  --ganj-text-secondary: #e2e8f0;
+  --ganj-text-muted: #cbd5e1;
   --ganj-text-faint: #94a3b8;
+  /* Spacing scale (match styles.css) */
+  --ganj-space-1: 4px;
+  --ganj-space-2: 6px;
+  --ganj-space-3: 8px;
+  --ganj-space-4: 12px;
+  --ganj-space-5: 16px;
+  --ganj-space-6: 24px;
+  /* Typography */
   --ganj-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --ganj-font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Monaco', 'Courier New', monospace;
-  --ganj-shadow: 0 4px 24px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05);
-  --ganj-shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  /* Chrome */
+  --ganj-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 0, 0, 0.1);
+  --ganj-shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0, 0, 0, 0.1);
   --ganj-radius: 10px;
   --ganj-transition: all 0.15s ease;
 }
