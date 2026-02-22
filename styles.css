@@ -183,7 +183,7 @@ input[type="text"], input[type="url"] {
   box-sizing: border-box;
 }
 
-input[type="text"]:focus, input[type="url"]:focus {
+input[type="text"]:focus-visible, input[type="url"]:focus-visible {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgb(34 211 238 / 0.2);
@@ -227,7 +227,7 @@ label:hover {
   color: var(--primary);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.05em;
-  text-shadow: 0 2px 4px rgb(59 130 246 / 0.1);
+  text-shadow: 0 2px 4px rgb(34 211 238 / 0.2);
 }
 
 #pomodoroTask {
@@ -539,12 +539,33 @@ a:hover {
   }
 }
 
-/* Focus styles for keyboard navigation */
+/* Focus styles for keyboard navigation (accent = --primary) */
 button:focus-visible,
 input:focus-visible,
-a:focus-visible {
+a:focus-visible,
+select:focus-visible,
+.tool-btn:focus-visible,
+.feature-btn:focus-visible,
+.section-toggle:focus-visible,
+.tab-set-actions button:focus-visible,
+.sticky-note-btn:focus-visible,
+.sticky-note-title:focus-visible,
+.quick-actions-close:focus-visible,
+.action-btn:focus-visible,
+.tools-close:focus-visible,
+.redirector-close:focus-visible,
+.refresh-close:focus-visible,
+.search-close:focus-visible,
+.css-editor-close:focus-visible,
+.js-editor-close:focus-visible,
+.tab-btn:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
+}
+input[type="text"]:focus-visible,
+input[type="url"]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(34 211 238 / 0.2);
 }
 /* ===== NEW TOOL STYLES ===== */
 
@@ -615,7 +636,12 @@ a:focus-visible {
   border: 1px solid var(--border-strong) !important;
 }
 
-.site-tools-section h2 {
+.site-tools-section h2,
+.site-tools-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
   color: var(--gray-900) !important;
   font-size: 15px;
 }

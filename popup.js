@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const section = document.createElement('div');
       section.className = 'section site-tools-section';
       section.innerHTML = `
-        <h2 style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <h2 class="site-tools-heading">
           <span>${siteTools.icon}</span>
           <span>${siteTools.name} Tools</span>
         </h2>
