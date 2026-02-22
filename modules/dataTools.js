@@ -415,8 +415,10 @@ const DataTools = (() => {
   // ---- Generate ----
 
   function generateMock() {
-    const count = Math.min(parseInt(el('#dtGenCount').value) || 10, 500);
-    const type = el('#dtGenType').value;
+    const countEl = container.querySelector('#dtGenCount');
+    const typeEl = container.querySelector('#dtGenType');
+    const count = Math.min(parseInt(countEl?.value) || 10, 500);
+    const type = typeEl?.value || 'users';
     const generators = { users: genUser, products: genProduct, orders: genOrder, logs: genLog };
     const gen = generators[type] || genUser;
     const data = Array.from({ length: count }, (_, i) => gen(i + 1));
@@ -448,11 +450,32 @@ const DataTools = (() => {
   function genSimple(data) { showGenerated(data); }
 
   function showGenerated(data) {
-    el('#dtGenRaw').value = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
-    const tree = el('#dtGenTree');
-    if (typeof data === 'string') { tree.innerHTML = `<pre style="margin:0;white-space:pre-wrap;">${escapeHtml(data)}</pre>`; return; }
-    tree.innerHTML = buildJsonTree(data);
-    bindTreeToggles(tree);
+    const raw = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+
+    const rawEl = container.querySelector('#dtGenRaw');
+    const treeEl = container.querySelector('#dtGenTree');
+
+    if (!treeEl) {
+      toast('Error: output container not found', true);
+      return;
+    }
+
+    if (rawEl) rawEl.value = raw;
+
+    if (typeof data === 'string') {
+      treeEl.innerHTML = '<pre style="margin:0;white-space:pre-wrap;color:#e2e8f0;">' + escapeHtml(data) + '</pre>';
+      return;
+    }
+
+    try {
+      const html = buildJsonTree(data);
+      treeEl.innerHTML = html;
+      bindTreeToggles(treeEl);
+    } catch (e) {
+      treeEl.innerHTML = '<pre style="margin:0;white-space:pre-wrap;color:#e2e8f0;">' + escapeHtml(raw) + '</pre>';
+    }
+
+    toast('Generated ' + (Array.isArray(data) ? data.length + ' items' : 'data') + ' ✅');
   }
 
   // ---- Helpers ----
