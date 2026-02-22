@@ -93,6 +93,27 @@ function notify(id, title, message) {
 // --- Pomodoro alarm ---
 
 chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name.startsWith('noteReminder-')) {
+    chrome.storage.local.get({ noteReminders: {} }, ({ noteReminders }) => {
+      const info = noteReminders[alarm.name];
+      if (!info) return;
+      notify('noteReminder', `📝 ${info.title}`, 'Time to revisit your note!');
+      if (info.url) {
+        chrome.tabs.query({ url: info.url + '*' }, (tabs) => {
+          if (tabs?.length) {
+            chrome.tabs.update(tabs[0].id, { active: true });
+            chrome.tabs.reload(tabs[0].id);
+          } else {
+            chrome.tabs.create({ url: info.url });
+          }
+        });
+      }
+      delete noteReminders[alarm.name];
+      chrome.storage.local.set({ noteReminders });
+    });
+    return;
+  }
+
   if (alarm.name !== 'pomodoroTimer') return;
 
   chrome.storage.local.get(['pomodoroState', 'pomodoroLogs'], (localRes) => {
@@ -154,7 +175,10 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.removeAll(() => {
     // Top-level quick access
-    chrome.contextMenus.create({ id: 'stickyNote', title: '📝 Create Sticky Note', contexts: ['page', 'selection'] });
+    chrome.contextMenus.create({ id: 'stickyNote', title: '📝 Create Note Here', contexts: ['page'] });
+    chrome.contextMenus.create({ id: 'annotateSelection', title: '📌 Annotate Selection', contexts: ['selection'] });
+    chrome.contextMenus.create({ id: 'annotateImage', title: '🖼️ Annotate Image', contexts: ['image'] });
+    chrome.contextMenus.create({ id: 'annotateVideo', title: '🎥 Annotate Video', contexts: ['video'] });
     chrome.contextMenus.create({ id: 'screenshot', title: '📸 Screenshot', contexts: ['page'] });
     chrome.contextMenus.create({ id: 'quickActions', title: '🚀 Quick Actions', contexts: ['page'] });
     chrome.contextMenus.create({ id: 'sep1', type: 'separator', contexts: ['page'] });
@@ -214,9 +238,9 @@ const TOOL_TOGGLE_MAP = {
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (!tab?.id || !isWebUrl(tab.url)) return;
 
-  // Sticky note
-  if (info.menuItemId === 'stickyNote') {
-    chrome.tabs.sendMessage(tab.id, { action: 'getClickPosition' }, (coords) => {
+  // Sticky notes
+  if (['stickyNote', 'annotateSelection', 'annotateImage', 'annotateVideo'].includes(info.menuItemId)) {
+    chrome.tabs.sendMessage(tab.id, { action: 'getClickContext' }, (ctx) => {
       if (chrome.runtime.lastError) return;
 
       let cleanUrl;
@@ -224,11 +248,27 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       catch { return; }
 
       const noteData = {
-        x: coords?.x || 100, y: coords?.y || 100,
-        content: info.selectionText || '', title: '',
-        color: '#fffae6', font: 'Arial', url: cleanUrl,
-        id: `${Date.now()}-${Math.random()}`
+        x: ctx?.coords?.x || 100, y: ctx?.coords?.y || 100,
+        content: '', title: '', tags: [],
+        color: '#fde68a', url: cleanUrl,
+        id: `${Date.now()}-${Math.random()}`,
+        collapsed: false
       };
+
+      if (info.menuItemId === 'annotateSelection' && (info.selectionText || ctx?.selection)) {
+        noteData.anchorText = info.selectionText || ctx.selection;
+        noteData.content = `> ${noteData.anchorText}\n\n`;
+      }
+
+      if (info.menuItemId === 'annotateImage' && info.srcUrl) {
+        noteData.media = { type: 'image', src: info.srcUrl };
+        noteData.content = `![image](${info.srcUrl})\n\n`;
+      }
+
+      if (info.menuItemId === 'annotateVideo' && info.srcUrl) {
+        noteData.media = { type: 'video', src: info.srcUrl };
+        noteData.content = `🎥 [Video](${info.srcUrl})\n\n`;
+      }
 
       chrome.storage.local.get({ stickyNotes: [] }, ({ stickyNotes }) => {
         stickyNotes.push(noteData);
@@ -480,6 +520,18 @@ const messageHandlers = {
     }).catch(err => {
       sendResponse({ error: err.message, time: Date.now() - start });
     });
+    return true;
+  },
+
+  setNoteReminder(message, sender, sendResponse) {
+    if (!message.noteId || !message.delayMs) return;
+    const alarmName = `noteReminder-${message.noteId}`;
+    chrome.alarms.create(alarmName, { delayInMinutes: message.delayMs / 60000 });
+    chrome.storage.local.get({ noteReminders: {} }, ({ noteReminders }) => {
+      noteReminders[alarmName] = { url: message.url, title: message.title, noteId: message.noteId };
+      chrome.storage.local.set({ noteReminders });
+    });
+    sendResponse({ ok: true });
     return true;
   },
 

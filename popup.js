@@ -113,6 +113,10 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.tabs.create({ url: chrome.runtime.getURL('report.html') });
   });
 
+  document.getElementById('viewAllNotes').addEventListener('click', () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('notes.html') });
+  });
+
   toggleFloatingTimer.addEventListener('change', () => {
     chrome.storage.sync.set({ showFloatingTimer: toggleFloatingTimer.checked });
     chrome.runtime.sendMessage({ action: 'toggleFloatingTimer', enabled: toggleFloatingTimer.checked });

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Notes Index - Ganj's Utility Belt</title>
+  <script src="libs/marked.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; color: #1e293b; padding: 24px; max-width: 900px; margin: auto; }
+    h1 { font-size: 22px; margin-bottom: 6px; }
+    .subtitle { font-size: 13px; color: #64748b; margin-bottom: 20px; }
+    .controls { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+    .controls input { flex: 1; min-width: 200px; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; }
+    .controls input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+    .controls select { padding: 8px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; }
+    .controls button { padding: 8px 16px; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; background: #2563eb; color: white; }
+    .controls button.secondary { background: #64748b; }
+    .controls button.danger { background: #dc2626; }
+    .stats { display: flex; gap: 16px; margin-bottom: 20px; font-size: 13px; color: #64748b; }
+    .site-group { margin-bottom: 24px; }
+    .site-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; cursor: pointer; user-select: none; }
+    .site-header:hover { color: #2563eb; }
+    .site-name { font-size: 15px; font-weight: 600; }
+    .site-count { font-size: 12px; color: #94a3b8; }
+    .note-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; margin-bottom: 8px; cursor: pointer; transition: box-shadow 0.15s; border-left: 3px solid #fde68a; }
+    .note-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    .note-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+    .note-excerpt { font-size: 13px; color: #475569; margin-bottom: 6px; line-height: 1.4; }
+    .note-meta { display: flex; gap: 12px; font-size: 11px; color: #94a3b8; align-items: center; flex-wrap: wrap; }
+    .note-tag { display: inline-block; padding: 1px 6px; background: #e0e7ff; color: #3730a3; border-radius: 10px; font-size: 10px; font-weight: 500; }
+    .note-anchor { font-size: 11px; color: #64748b; font-style: italic; margin-bottom: 4px; }
+    .empty { text-align: center; color: #94a3b8; padding: 40px; font-size: 15px; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #0f172a; color: #e2e8f0; }
+      .note-card { background: #1e293b; border-color: #334155; }
+      .note-excerpt { color: #94a3b8; }
+      .controls input, .controls select { background: #1e293b; border-color: #334155; color: #e2e8f0; }
+    }
+  </style>
+</head>
+<body>
+  <h1>📝 Notes Index</h1>
+  <p class="subtitle">All your notes across the web</p>
+
+  <div class="controls">
+    <input type="text" id="search" placeholder="Search notes...">
+    <select id="sortBy">
+      <option value="newest">Newest</option>
+      <option value="oldest">Oldest</option>
+      <option value="alpha">A-Z</option>
+      <option value="site">By Site</option>
+    </select>
+    <button id="exportAll">Export All</button>
+    <button id="clearAll" class="danger">Clear All</button>
+  </div>
+
+  <div class="stats" id="stats"></div>
+  <div id="notesList"></div>
+
+  <script>
+    const search = document.getElementById('search');
+    const sortBy = document.getElementById('sortBy');
+    const notesList = document.getElementById('notesList');
+    const stats = document.getElementById('stats');
+
+    function loadNotes() {
+      chrome.storage.local.get({ stickyNotes: [] }, ({ stickyNotes }) => {
+        renderNotes(stickyNotes);
+      });
+    }
+
+    function renderNotes(notes) {
+      const query = search.value.toLowerCase();
+      let filtered = notes.filter(n => {
+        if (!query) return true;
+        return (n.title || '').toLowerCase().includes(query) ||
+               (n.content || '').toLowerCase().includes(query) ||
+               (n.url || '').toLowerCase().includes(query) ||
+               (n.tags || []).some(t => t.includes(query)) ||
+               (n.anchorText || '').toLowerCase().includes(query);
+      });
+
+      const sort = sortBy.value;
+      filtered.sort((a, b) => {
+        if (sort === 'newest') return new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt);
+        if (sort === 'oldest') return new Date(a.createdAt) - new Date(b.createdAt);
+        if (sort === 'alpha') return (a.title || '').localeCompare(b.title || '');
+        if (sort === 'site') return (a.url || '').localeCompare(b.url || '');
+        return 0;
+      });
+
+      stats.innerHTML = `<span>${filtered.length} note${filtered.length !== 1 ? 's' : ''}</span>
+        <span>${new Set(filtered.map(n => n.url)).size} site${new Set(filtered.map(n => n.url)).size !== 1 ? 's' : ''}</span>
+        <span>${filtered.reduce((s, n) => s + (n.tags?.length || 0), 0)} tags</span>`;
+
+      if (!filtered.length) {
+        notesList.innerHTML = '<div class="empty">No notes found</div>';
+        return;
+      }
+
+      const grouped = {};
+      filtered.forEach(n => {
+        let site;
+        try { site = new URL(n.url).hostname; } catch { site = 'Unknown'; }
+        if (!grouped[site]) grouped[site] = [];
+        grouped[site].push(n);
+      });
+
+      notesList.innerHTML = Object.entries(grouped).map(([site, notes]) => `
+        <div class="site-group">
+          <div class="site-header">
+            <span class="site-name">${escapeHtml(site)}</span>
+            <span class="site-count">${notes.length}</span>
+          </div>
+          ${notes.map(n => {
+            const excerpt = (n.content || '').substring(0, 120).replace(/\n/g, ' ');
+            const icon = n.media ? (n.media.type === 'image' ? '🖼️' : '🎥') : (n.anchorText ? '📌' : '📝');
+            const tags = (n.tags || []).map(t => `<span class="note-tag">${escapeHtml(t)}</span>`).join(' ');
+            const time = new Date(n.updatedAt || n.createdAt).toLocaleDateString();
+            return `<div class="note-card" data-url="${escapeHtml(n.url)}" style="border-left-color:${n.color || '#fde68a'};">
+              ${n.anchorText ? `<div class="note-anchor">📌 "${escapeHtml(n.anchorText.substring(0, 80))}"</div>` : ''}
+              <div class="note-title">${icon} ${escapeHtml(n.title || 'Untitled')}</div>
+              <div class="note-excerpt">${escapeHtml(excerpt)}</div>
+              <div class="note-meta">
+                <span>${time}</span>
+                ${tags}
+                ${n.reminder ? '<span>⏰</span>' : ''}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      `).join('');
+
+      notesList.querySelectorAll('.note-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const url = card.dataset.url;
+          if (url) chrome.tabs.create({ url });
+        });
+      });
+    }
+
+    function escapeHtml(text) {
+      const d = document.createElement('div');
+      d.textContent = text || '';
+      return d.innerHTML;
+    }
+
+    search.addEventListener('input', loadNotes);
+    sortBy.addEventListener('change', loadNotes);
+
+    document.getElementById('exportAll').addEventListener('click', () => {
+      chrome.storage.local.get({ stickyNotes: [] }, ({ stickyNotes }) => {
+        const blob = new Blob([JSON.stringify(stickyNotes, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `notes-${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+    });
+
+    document.getElementById('clearAll').addEventListener('click', () => {
+      if (!confirm('Delete ALL notes? This cannot be undone.')) return;
+      chrome.storage.local.set({ stickyNotes: [] }, loadNotes);
+    });
+
+    loadNotes();
+  </script>
+</body>
+</html>

@@ -836,41 +836,247 @@
   font-family: var(--ganj-font-mono) !important;
 }
 
-/* ===== STICKY NOTES ===== */
-.gub-sticky-note {
+/* ===== STICKY NOTES - PILL (MINIMIZED) ===== */
+.gub-note-pill {
   position: absolute;
-  min-width: 350px; max-width: 450px;
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  box-shadow: 2px 2px 6px rgba(0,0,0,0.2);
-  resize: both; overflow: hidden;
   z-index: 10000;
-  display: flex; flex-direction: column; justify-content: space-between;
-  transition: all 0.25s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px 5px 8px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-left: 3px solid #fde68a;
+  border-radius: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  cursor: pointer;
   font-family: var(--ganj-font-sans);
+  font-size: 12px;
+  color: #334155;
+  max-width: 200px;
+  transition: box-shadow 0.15s, transform 0.15s;
+  user-select: none;
 }
-.gub-sticky-note.pinned {
+.gub-note-pill:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  transform: translateY(-1px);
+}
+.gub-pill-icon { font-size: 13px; flex-shrink: 0; }
+.gub-pill-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+
+/* ===== STICKY NOTES - EXPANDED ===== */
+.gub-note {
+  position: absolute;
   z-index: 10001;
-  border-color: var(--ganj-primary);
-  box-shadow: 0 0 0 2px var(--ganj-primary), 2px 2px 6px rgba(0,0,0,0.2);
+  width: 340px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+  font-family: var(--ganj-font-sans);
+  font-size: 13px;
+  color: #1e293b;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
-.gub-sticky-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; cursor: move; }
-.gub-sticky-controls { display: flex; gap: 10px; align-items: center; }
-.gub-sticky-btn { cursor: pointer; font-size: 16px; background: none; border: none; padding: 2px; line-height: 1; transition: transform 0.1s ease; }
-.gub-sticky-btn:hover { transform: scale(1.15); }
-.gub-sticky-delete:hover { color: crimson; }
-.gub-sticky-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; padding: 6px 0; gap: 8px; }
-.gub-color-picker { display: flex; gap: 4px; }
-.gub-color-swatch { width: 14px; height: 14px; border-radius: 50%; border: 1px solid #999; cursor: pointer; transition: box-shadow 0.2s ease; }
-.gub-color-swatch.active { box-shadow: 0 0 0 2px #000; }
-.gub-font-picker { display: flex; gap: 6px; }
-.gub-font-option { font-size: 12px; cursor: pointer; color: #475569; }
-.gub-font-option.active { font-weight: bold; color: #1e293b; }
-.gub-sticky-title { border: none; background: transparent; outline: none; font-weight: bold; font-family: inherit; width: 100%; margin-bottom: 5px; font-size: 14px; color: #1e293b; }
-.gub-sticky-textarea { width: 100%; height: 110px; background: transparent; border: none; outline: none; resize: none; font-family: inherit; font-size: 14px; display: none; color: #1e293b; }
-.gub-sticky-preview { font-family: inherit; font-size: 14px; margin-top: 8px; border-top: 1px solid #ccc; padding-top: 6px; min-height: 80px; cursor: text; line-height: 1.5; color: #334155; }
-.gub-sticky-footer { font-size: 10px; color: #64748b; margin-top: auto; padding-top: 6px; text-align: right; user-select: none; }
+
+.gub-note-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  border-bottom: 2px solid #fde68a;
+  cursor: move;
+  gap: 6px;
+  background: #fafbfc;
+}
+.gub-note-title {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  font-family: inherit;
+  padding: 2px 0;
+}
+.gub-note-title::placeholder { color: #94a3b8; font-weight: 400; }
+.gub-note-actions { display: flex; gap: 2px; flex-shrink: 0; }
+.gub-note-btn {
+  width: 24px; height: 24px;
+  border: none; background: transparent;
+  cursor: pointer; font-size: 13px;
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  color: #94a3b8;
+  transition: all 0.1s;
+}
+.gub-note-btn:hover { background: #f1f5f9; color: #475569; }
+.gub-note-btn[data-act="delete"]:hover { background: #fee2e2; color: #dc2626; }
+
+.gub-note-media { padding: 8px 10px 4px; }
+.gub-note-anchor {
+  padding: 4px 10px;
+  font-size: 11px;
+  color: #64748b;
+  background: #f8fafc;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.gub-note-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px;
+  border-bottom: 1px solid #f1f5f9;
+  background: #fafbfc;
+}
+.gub-note-toolbar button {
+  width: 26px; height: 24px;
+  border: none; background: transparent;
+  cursor: pointer; font-size: 12px;
+  border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+  color: #64748b;
+  padding: 0;
+}
+.gub-note-toolbar button:hover { background: #e2e8f0; color: #1e293b; }
+
+.gub-color-dot {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border-color 0.1s;
+  flex-shrink: 0;
+}
+.gub-color-dot.active { border-color: #475569; }
+.gub-color-dot:hover { border-color: #94a3b8; }
+
+.gub-note-editor {
+  display: none;
+  width: 100%;
+  min-height: 100px;
+  max-height: 250px;
+  padding: 10px;
+  border: none;
+  outline: none;
+  resize: vertical;
+  font-family: var(--ganj-font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: #1e293b;
+  background: #fff;
+}
+
+.gub-note-preview {
+  padding: 10px;
+  min-height: 40px;
+  max-height: 250px;
+  overflow-y: auto;
+  cursor: text;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #334155;
+}
+.gub-note-preview p { margin: 0 0 8px; }
+.gub-note-preview p:last-child { margin: 0; }
+.gub-note-preview code {
+  background: #f1f5f9;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-family: var(--ganj-font-mono);
+}
+.gub-note-preview pre {
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+.gub-note-preview pre code { background: none; padding: 0; color: inherit; }
+.gub-note-preview blockquote {
+  border-left: 3px solid #e2e8f0;
+  margin: 8px 0;
+  padding: 4px 12px;
+  color: #64748b;
+}
+.gub-note-preview ul, .gub-note-preview ol { margin: 4px 0; padding-left: 20px; }
+.gub-note-preview a { color: #2563eb; }
+.gub-note-preview img { max-width: 100%; border-radius: 4px; }
+
+.gub-note-footer {
+  padding: 6px 10px;
+  border-top: 1px solid #f1f5f9;
+  background: #fafbfc;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.gub-note-tags {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+.gub-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 6px;
+  background: #e0e7ff;
+  color: #3730a3;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.gub-tag-x { cursor: pointer; font-size: 11px; opacity: 0.6; }
+.gub-tag-x:hover { opacity: 1; }
+.gub-tag-input {
+  border: none;
+  outline: none;
+  font-size: 10px;
+  width: 50px;
+  padding: 1px 4px;
+  background: transparent;
+  color: #64748b;
+}
+
+.gub-note-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.gub-note-btn-sm {
+  width: 22px; height: 22px;
+  border: none; background: transparent;
+  cursor: pointer; font-size: 12px;
+  border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0;
+}
+.gub-note-btn-sm:hover { background: #e2e8f0; }
+.gub-note-time { font-size: 10px; color: #94a3b8; }
+
+/* Page highlight mark */
+.gub-highlight {
+  background-color: #fde68a;
+  cursor: pointer;
+  border-radius: 2px;
+  padding: 1px 0;
+  transition: background-color 0.2s;
+}
+.gub-highlight:hover { background-color: #fbbf24; }
 
 /* ===== FLOATING TIMER ===== */
 #pomodoro-floating-timer { font-family: var(--ganj-font-sans) !important; }
