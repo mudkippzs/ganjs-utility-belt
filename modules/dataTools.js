@@ -129,10 +129,8 @@ Jane,30,Los Angeles"></textarea>
             </div>
             
             <div class="tool-section">
-              <h4>🔍 XPath Query</h4>
-              <input type="text" id="xpathQuery" placeholder="//item[@id='1']">
-              <button onclick="window.DataTools.queryXPath()" class="btn-primary">Query</button>
-              <div id="xpathResult"></div>
+              <h4>🔍 XML Tools</h4>
+              <p style="color: var(--ganj-text-muted, #64748b); font-size: 13px;">Paste XML above to validate, view tree, or convert to JSON.</p>
             </div>
             
             <div class="tool-section">
@@ -207,14 +205,7 @@ Jane,30,Los Angeles"></textarea>
             
             <div class="tool-section">
               <h4>🧮 Data Operations</h4>
-              <div class="operations-grid">
-                <button onclick="window.DataTools.mergeSets()" class="btn-outline">Merge Datasets</button>
-                <button onclick="window.DataTools.deduplicateData()" class="btn-outline">Remove Duplicates</button>
-                <button onclick="window.DataTools.sortData()" class="btn-outline">Sort Data</button>
-                <button onclick="window.DataTools.groupData()" class="btn-outline">Group By</button>
-                <button onclick="window.DataTools.aggregateData()" class="btn-outline">Aggregate</button>
-                <button onclick="window.DataTools.pivotData()" class="btn-outline">Pivot Table</button>
-              </div>
+              <p style="color: var(--ganj-text-muted, #64748b); font-size: 13px;">Paste data in the input, select a format, and click Transform.</p>
             </div>
           </div>
           

@@ -60,28 +60,6 @@ const ScreenshotTools = (() => {
           </div>
         </div>
         
-        <div class="image-editing" id="imageEditingPanel" style="display: none;">
-          <div class="editing-header">
-            <h4>🎨 Edit Screenshot</h4>
-          </div>
-          
-          <canvas id="editingCanvas"></canvas>
-          
-          <div class="editing-tools">
-            <button id="cropTool">✂️ Crop</button>
-            <button id="annotationTool">✏️ Annotate</button>
-            <button id="blurTool">🌫️ Blur</button>
-            <button id="highlightTool">🖍️ Highlight</button>
-            <button id="arrowTool">➡️ Arrow</button>
-          </div>
-          
-          <div class="editing-controls">
-            <button id="downloadEdited" class="btn-primary">💾 Download</button>
-            <button id="copyEdited" class="btn-secondary">📋 Copy</button>
-            <button id="cancelEdit" class="btn-outline">❌ Cancel</button>
-          </div>
-        </div>
-        
         <div class="tools-status">
           <span id="screenshotStatus">Ready to capture</span>
         </div>
@@ -107,11 +85,6 @@ const ScreenshotTools = (() => {
     qualitySlider.addEventListener('input', (e) => {
       qualityValue.textContent = Math.round(e.target.value * 100) + '%';
     });
-    
-    // Editing tools
-    toolsContainer.querySelector('#downloadEdited').addEventListener('click', downloadEditedImage);
-    toolsContainer.querySelector('#copyEdited').addEventListener('click', copyEditedImage);
-    toolsContainer.querySelector('#cancelEdit').addEventListener('click', cancelEditing);
   }
 
   function captureVisible() {
@@ -332,68 +305,46 @@ const ScreenshotTools = (() => {
       copyImageToClipboard(dataUrl);
     }
     
-    // Show editing panel
-    showImageEditor(dataUrl);
-    
+    downloadImage(dataUrl);
     updateStatus('Screenshot captured successfully');
   }
 
-  function showImageEditor(dataUrl) {
-    const editingPanel = toolsContainer.querySelector('#imageEditingPanel');
-    const canvas = toolsContainer.querySelector('#editingCanvas');
-    const ctx = canvas.getContext('2d');
-    
-    const img = new Image();
-    img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx.drawImage(img, 0, 0);
-      
-      editingPanel.style.display = 'block';
-    };
-    img.src = dataUrl;
-  }
-
-  function downloadEditedImage() {
-    const canvas = toolsContainer.querySelector('#editingCanvas');
+  function downloadImage(dataUrl) {
     const settings = getSettings();
+    const format = settings.format;
     
     try {
       const link = document.createElement('a');
       link.download = generateFilename();
-      link.href = canvas.toDataURL(`image/${settings.format}`, settings.quality);
       
-      // Add to document temporarily for Firefox compatibility
+      if (format === 'png') {
+        link.href = dataUrl;
+      } else {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          link.href = canvas.toDataURL(`image/${format}`, settings.quality);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          updateStatus('Image downloaded successfully ✅');
+        };
+        img.src = dataUrl;
+        return;
+      }
+      
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
       updateStatus('Image downloaded successfully ✅');
     } catch (error) {
       console.error('Download failed:', error);
       updateStatus('Download failed - try a different format');
     }
-  }
-
-  function copyEditedImage() {
-    const canvas = toolsContainer.querySelector('#editingCanvas');
-    
-    canvas.toBlob((blob) => {
-      if (blob) {
-        navigator.clipboard.write([
-          new ClipboardItem({ 'image/png': blob })
-        ]).then(() => {
-          updateStatus('Image copied to clipboard ✅');
-        }).catch(error => {
-          console.error('Clipboard copy failed:', error);
-          updateStatus('Clipboard copy failed - check permissions');
-          // Fallback: try to download instead
-          downloadEditedImage();
-        });
-      } else {
-        updateStatus('Failed to create image blob');
-      }
-    });
   }
 
   function copyImageToClipboard(dataUrl) {
@@ -413,11 +364,6 @@ const ScreenshotTools = (() => {
         console.error('Failed to process image for clipboard:', error);
         updateStatus('Failed to process image for clipboard');
       });
-  }
-
-  function cancelEditing() {
-    const editingPanel = toolsContainer.querySelector('#imageEditingPanel');
-    editingPanel.style.display = 'none';
   }
 
   function getSettings() {
@@ -468,10 +414,7 @@ const ScreenshotTools = (() => {
     isVisible ? hide() : show();
   }
 
-  return { 
-    init, show, hide, toggle,
-    downloadEditedImage, copyEditedImage, cancelEditing
-  };
+  return { init, show, hide, toggle };
 })();
 
 // Make it globally accessible

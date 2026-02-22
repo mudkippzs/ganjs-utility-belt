@@ -208,21 +208,6 @@ const NetworkTools = (() => {
           <div class="network-tab-content" data-tab="tools">
             <div class="network-tools-grid">
               <div class="tool-card">
-                <h4>🌍 DNS Lookup</h4>
-                <input type="text" id="dnsInput" placeholder="example.com">
-                <button onclick="window.NetworkTools.performDNSLookup()" class="btn-primary">Lookup</button>
-                <div id="dnsResult"></div>
-              </div>
-              
-              <div class="tool-card">
-                <h4>🔍 Port Scanner</h4>
-                <input type="text" id="portHost" placeholder="example.com">
-                <input type="text" id="portRange" placeholder="80,443,8080">
-                <button onclick="window.NetworkTools.scanPorts()" class="btn-primary">Scan</button>
-                <div id="portResult"></div>
-              </div>
-              
-              <div class="tool-card">
                 <h4>📡 Ping Test</h4>
                 <input type="text" id="pingHost" placeholder="example.com">
                 <button onclick="window.NetworkTools.pingHost()" class="btn-primary">Ping</button>
@@ -659,36 +644,6 @@ const NetworkTools = (() => {
   }
 
   // Tool functions
-  function performDNSLookup() {
-    const domain = container.querySelector('#dnsInput').value.trim();
-    if (!domain) return;
-    
-    // Simulate DNS lookup (actual DNS lookup requires different APIs)
-    container.querySelector('#dnsResult').innerHTML = `
-      <div class="tool-result">
-        <strong>DNS Lookup for ${escapeHtml(domain)}:</strong><br>
-        Note: Browser security limits prevent real DNS lookups.<br>
-        Try using network debugging tools or server-side utilities.
-      </div>
-    `;
-  }
-
-  function scanPorts() {
-    const host = container.querySelector('#portHost').value.trim();
-    const ports = container.querySelector('#portRange').value.trim();
-    
-    if (!host || !ports) return;
-    
-    container.querySelector('#portResult').innerHTML = `
-      <div class="tool-result">
-        <strong>Port Scan for ${escapeHtml(host)}:</strong><br>
-        Note: Browser security prevents direct port scanning.<br>
-        Ports: ${escapeHtml(ports)}<br>
-        Use specialized tools like nmap for actual port scanning.
-      </div>
-    `;
-  }
-
   function pingHost() {
     const host = container.querySelector('#pingHost').value.trim();
     if (!host) return;
@@ -912,7 +867,7 @@ const NetworkTools = (() => {
 
   return { 
     init, show, hide, toggle,
-    performDNSLookup, scanPorts, pingHost, analyzeUrl, checkHeaders, performanceTest
+    pingHost, analyzeUrl, checkHeaders, performanceTest
   };
 })();
 
