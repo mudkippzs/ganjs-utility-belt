@@ -77,6 +77,50 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.storage.local.remove('pomodoroLogs', () => showToast('Focus history cleared'));
   });
 
+  // --- Site Tool URLs ---
+  const SITE_URL_DEFAULTS = {
+    reddit: ['reddit.com'],
+    twitter: ['twitter.com', 'x.com'],
+    youtube: ['youtube.com'],
+    imgur: ['imgur.com'],
+    chan: ['4chan.org', '4channel.org']
+  };
+
+  const siteUrlFields = {
+    reddit: document.getElementById('siteUrlReddit'),
+    twitter: document.getElementById('siteUrlTwitter'),
+    youtube: document.getElementById('siteUrlYoutube'),
+    imgur: document.getElementById('siteUrlImgur'),
+    chan: document.getElementById('siteUrlChan'),
+  };
+
+  function loadSiteUrls() {
+    chrome.storage.sync.get(['siteToolUrls'], (res) => {
+      const urls = res.siteToolUrls || SITE_URL_DEFAULTS;
+      Object.entries(siteUrlFields).forEach(([key, textarea]) => {
+        textarea.value = (urls[key] || []).join('\n');
+      });
+    });
+  }
+
+  function saveSiteUrls() {
+    const siteToolUrls = {};
+    Object.entries(siteUrlFields).forEach(([key, textarea]) => {
+      siteToolUrls[key] = textarea.value.split('\n').map(s => s.trim()).filter(Boolean);
+    });
+    chrome.storage.sync.set({ siteToolUrls }, () => showToast('Site URLs saved'));
+  }
+
+  loadSiteUrls();
+
+  document.getElementById('saveSiteUrls').addEventListener('click', saveSiteUrls);
+  document.getElementById('resetSiteUrls').addEventListener('click', () => {
+    chrome.storage.sync.set({ siteToolUrls: SITE_URL_DEFAULTS }, () => {
+      loadSiteUrls();
+      showToast('Reset to defaults');
+    });
+  });
+
   function downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

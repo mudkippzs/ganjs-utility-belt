@@ -123,6 +123,19 @@
     }
     .toast.visible { transform: translateY(0); opacity: 1; }
 
+    .site-url-input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+      line-height: 1.5;
+      resize: vertical;
+      background: #f8fafc;
+    }
+    .site-url-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.1); }
+
     @media (prefers-color-scheme: dark) {
       body { background: #111827; color: #f3f4f6; }
       section { background: #1f2937; border-color: #374151; }
@@ -262,6 +275,37 @@
       <button id="exportNotes">Export Notes (JSON)</button>
       <button id="exportPomodoro">Export Focus Log (CSV)</button>
       <button id="clearPomodoro" class="danger">Clear Focus History</button>
+    </div>
+  </section>
+
+  <!-- Site Tools URL Config -->
+  <section>
+    <h2>🌐 Site-Specific Tools</h2>
+    <p style="font-size:13px;color:#64748b;margin-bottom:16px;">Configure which URLs trigger each site toolset. One domain per line. Tools appear at the top of the popup when visiting a matching site.</p>
+
+    <div class="setting-row" style="flex-direction:column;align-items:stretch;">
+      <div class="setting-label" style="margin-bottom:4px;">🟠 Reddit</div>
+      <textarea id="siteUrlReddit" class="site-url-input" rows="2" placeholder="reddit.com"></textarea>
+    </div>
+    <div class="setting-row" style="flex-direction:column;align-items:stretch;">
+      <div class="setting-label" style="margin-bottom:4px;">𝕏 Twitter / X</div>
+      <textarea id="siteUrlTwitter" class="site-url-input" rows="2" placeholder="twitter.com&#10;x.com"></textarea>
+    </div>
+    <div class="setting-row" style="flex-direction:column;align-items:stretch;">
+      <div class="setting-label" style="margin-bottom:4px;">▶️ YouTube</div>
+      <textarea id="siteUrlYoutube" class="site-url-input" rows="2" placeholder="youtube.com"></textarea>
+    </div>
+    <div class="setting-row" style="flex-direction:column;align-items:stretch;">
+      <div class="setting-label" style="margin-bottom:4px;">📷 Imgur</div>
+      <textarea id="siteUrlImgur" class="site-url-input" rows="2" placeholder="imgur.com"></textarea>
+    </div>
+    <div class="setting-row" style="flex-direction:column;align-items:stretch;">
+      <div class="setting-label" style="margin-bottom:4px;">🍀 Imageboard (4chan)</div>
+      <textarea id="siteUrlChan" class="site-url-input" rows="2" placeholder="4chan.org&#10;4channel.org"></textarea>
+    </div>
+    <div class="btn-row">
+      <button id="saveSiteUrls">Save Site URLs</button>
+      <button id="resetSiteUrls" class="secondary">Reset to Defaults</button>
     </div>
   </section>
 

@@ -45,40 +45,57 @@ document.addEventListener('DOMContentLoaded', () => {
     let hostname;
     try { hostname = new URL(tabs[0].url).hostname; } catch { return; }
 
-    const siteTools = getSiteTools(hostname);
-    if (!siteTools) return;
+    chrome.storage.sync.get(['siteToolUrls'], (res) => {
+      const siteUrls = res.siteToolUrls || SITE_TOOL_DEFAULTS;
+      const siteTools = getSiteTools(hostname, siteUrls);
+      if (!siteTools) return;
 
-    const container = document.getElementById('siteToolsContainer');
-    const section = document.createElement('div');
-    section.className = 'section site-tools-section';
-    section.innerHTML = `
-      <h2 style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-        <span>${siteTools.icon}</span>
-        <span>${siteTools.name} Tools</span>
-      </h2>
-      <div class="tool-grid">
-        ${siteTools.tools.map(t => `<button class="tool-btn site-tool-btn" data-site-tool="${t.id}" title="${t.desc || ''}">${t.icon} ${t.label}</button>`).join('')}
-      </div>
-    `;
-    container.appendChild(section);
+      const container = document.getElementById('siteToolsContainer');
+      const section = document.createElement('div');
+      section.className = 'section site-tools-section';
+      section.innerHTML = `
+        <h2 style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <span>${siteTools.icon}</span>
+          <span>${siteTools.name} Tools</span>
+        </h2>
+        <div class="tool-grid">
+          ${siteTools.tools.map(t => `<button class="tool-btn site-tool-btn" data-site-tool="${t.id}" title="${t.desc || ''}">${t.icon} ${t.label}</button>`).join('')}
+        </div>
+      `;
+      container.appendChild(section);
 
-    section.querySelectorAll('.site-tool-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const toolId = btn.dataset.siteTool;
-        const tool = siteTools.tools.find(t => t.id === toolId);
-        if (tool?.script) {
-          chrome.scripting.executeScript({
-            target: { tabId: tabs[0].id },
-            func: tool.script
-          });
-          window.close();
-        }
+      section.querySelectorAll('.site-tool-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const toolId = btn.dataset.siteTool;
+          const tool = siteTools.tools.find(t => t.id === toolId);
+          if (tool?.script) {
+            chrome.scripting.executeScript({
+              target: { tabId: tabs[0].id },
+              func: tool.script
+            });
+            window.close();
+          }
+        });
       });
     });
   });
 
-  function getSiteTools(hostname) {
-    if (hostname.includes('reddit.com')) return {
+  const SITE_TOOL_DEFAULTS = {
+    reddit: ['reddit.com'],
+    twitter: ['twitter.com', 'x.com'],
+    youtube: ['youtube.com'],
+    imgur: ['imgur.com'],
+    chan: ['4chan.org', '4channel.org']
+  };
+
+  function getSiteTools(hostname, siteUrls) {
+    const urls = siteUrls || SITE_TOOL_DEFAULTS;
+
+    function matches(key) {
+      return (urls[key] || []).some(pattern => hostname.includes(pattern));
+    }
+
+    if (matches('reddit')) return {
       name: 'Reddit', icon: '🟠',
       tools: [
         { id: 'r-collapse', icon: '📂', label: 'Collapse All', desc: 'Collapse all comment threads',
@@ -157,7 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ]
     };
 
-    if (hostname.includes('twitter.com') || hostname.includes('x.com')) return {
+    if (matches('twitter')) return {
       name: 'X / Twitter', icon: '𝕏',
       tools: [
         { id: 'x-thread', icon: '🧵', label: 'Thread Reader', desc: 'Extract full thread text',
@@ -175,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ]
     };
 
-    if (hostname.includes('youtube.com')) return {
+    if (matches('youtube')) return {
       name: 'YouTube', icon: '▶️',
       tools: [
         { id: 'yt-speed', icon: '⏩', label: 'Speed 2x', desc: 'Set video playback to 2x speed',
@@ -221,7 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ]
     };
 
-    if (hostname.includes('imgur.com')) return {
+    if (matches('imgur')) return {
       name: 'Imgur', icon: '📷',
       tools: [
         { id: 'im-download', icon: '💾', label: 'Download All', desc: 'Download all images from gallery',
@@ -235,7 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ]
     };
 
-    if (hostname.includes('4chan.org') || hostname.includes('4channel.org')) return {
+    if (matches('chan')) return {
       name: '4chan', icon: '🍀',
       tools: [
         { id: 'ch-dlall', icon: '💾', label: 'Save All', desc: 'Download all images/webms in thread',
