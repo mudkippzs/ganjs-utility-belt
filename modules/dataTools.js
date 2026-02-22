@@ -217,18 +217,20 @@ const DataTools = (() => {
       genSchema: generateFromSchema,
     };
 
-    container.querySelectorAll('[data-act]').forEach(b => {
-      b.addEventListener('click', () => {
-        const fn = actions[b.dataset.act];
-        if (fn) {
-          try { fn(); }
-          catch (e) { toast('Error: ' + e.message, true); }
-        }
-      });
+    container.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-act]');
+      if (!btn) return;
+      const fn = actions[btn.dataset.act];
+      if (fn) {
+        try { fn(); }
+        catch (err) { toast('Error: ' + err.message, true); }
+      }
     });
 
-    el('#dtJsonInput').addEventListener('input', debounce(() => { updateJsonInfo(); updateJsonTree(); }, 400));
-    el('#dtCsvInput').addEventListener('input', debounce(parseCSV, 500));
+    const jsonIn = el('#dtJsonInput');
+    const csvIn = el('#dtCsvInput');
+    if (jsonIn) jsonIn.addEventListener('input', debounce(() => { updateJsonInfo(); updateJsonTree(); }, 400));
+    if (csvIn) csvIn.addEventListener('input', debounce(parseCSV, 500));
   }
 
   function el(sel) { return container.querySelector(sel); }
