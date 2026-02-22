@@ -2,6 +2,7 @@
 const QuickActions = (() => {
   let container = null;
   let isVisible = false;
+  let focusTrapCleanup = null;
 
   function init() {
     createContainer();
@@ -173,12 +174,17 @@ const QuickActions = (() => {
     const modalEl = container.querySelector('.quick-actions-modal');
     if (window.ModalShell && modalEl) {
       window.ModalShell.restorePosition(modalEl, 'quickActions');
+      focusTrapCleanup = window.ModalShell.setFocusTrap(modalEl, hide);
     }
     container.classList.remove('hidden');
     isVisible = true;
   }
 
   function hide() {
+    if (focusTrapCleanup) {
+      focusTrapCleanup();
+      focusTrapCleanup = null;
+    }
     if (container) {
       container.classList.add('hidden');
     }

@@ -59,7 +59,8 @@
       background: white;
       min-width: 80px;
     }
-    select:focus, input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.1); }
+    select:focus-visible, input:focus-visible { outline: none; border-color: #22d3ee; box-shadow: 0 0 0 2px rgba(34,211,238,0.25); }
+    button:focus-visible { outline: 2px solid #22d3ee; outline-offset: 2px; }
 
     .toggle {
       position: relative;
@@ -134,14 +135,17 @@
       resize: vertical;
       background: #f8fafc;
     }
-    .site-url-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.1); }
+    .site-url-input:focus-visible { outline: none; border-color: #22d3ee; box-shadow: 0 0 0 2px rgba(34,211,238,0.25); }
 
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+    }
     @media (prefers-color-scheme: dark) {
       body { background: #111827; color: #f3f4f6; }
       section { background: #1f2937; border-color: #374151; }
       h2 { color: #e5e7eb; }
       .setting-label { color: #e5e7eb; }
-      .setting-desc { color: #6b7280; }
+      .setting-desc { color: #94a3b8; }
       .setting-row { border-color: #374151; }
       select, input[type="number"] { background: #374151; border-color: #4b5563; color: #f3f4f6; }
     }

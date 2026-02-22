@@ -11,7 +11,8 @@
     .subtitle { font-size: 13px; color: #64748b; margin-bottom: 20px; }
     .controls { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
     .controls input { flex: 1; min-width: 200px; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; }
-    .controls input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+    .controls input:focus-visible, .controls select:focus-visible { outline: none; border-color: #22d3ee; box-shadow: 0 0 0 3px rgba(34,211,238,0.2); }
+    .controls button:focus-visible { outline: 2px solid #22d3ee; outline-offset: 2px; }
     .controls select { padding: 8px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; }
     .controls button { padding: 8px 16px; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; background: #2563eb; color: white; }
     .controls button.secondary { background: #64748b; }

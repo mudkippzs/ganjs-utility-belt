@@ -3,6 +3,7 @@ const CrossTabSearch = (() => {
   let searchContainer = null;
   let isVisible = false;
   let searchResults = [];
+  let focusTrapCleanup = null;
 
   function init() {
     createSearchContainer();
@@ -239,19 +240,24 @@ const CrossTabSearch = (() => {
   function show() {
     if (!searchContainer) createSearchContainer();
     const modalEl = searchContainer.querySelector('.search-modal');
-    if (window.ModalShell && modalEl) window.ModalShell.restorePosition(modalEl, 'crossTabSearch');
+    if (window.ModalShell && modalEl) {
+      window.ModalShell.restorePosition(modalEl, 'crossTabSearch');
+      focusTrapCleanup = window.ModalShell.setFocusTrap(modalEl, hide);
+    }
     searchContainer.classList.remove('hidden');
     isVisible = true;
-    
     // Focus the search input
     setTimeout(() => {
       const input = searchContainer.querySelector('#tabSearchInput');
-      input.focus();
-      input.select();
+      if (input) { input.focus(); input.select(); }
     }, 100);
   }
 
   function hide() {
+    if (focusTrapCleanup) {
+      focusTrapCleanup();
+      focusTrapCleanup = null;
+    }
     if (searchContainer) {
       searchContainer.classList.add('hidden');
     }
