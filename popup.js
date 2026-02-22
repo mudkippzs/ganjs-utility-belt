@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
       section.className = 'section site-tools-section';
       const devIcon = ICONS.dev ? `<span class="popup-list-icon">${ICONS.dev}</span>` : '';
       section.innerHTML = `
-        <h2>${siteTools.name} Tools</h2>
+        <h2 class="site-tools-heading">${siteTools.name} Tools</h2>
         <ul class="popup-list" role="list">
           ${siteTools.tools.map(t => `
             <li class="site-tool-row" data-site-tool="${t.id}" title="${t.desc || ''}">
