@@ -1,0 +1,75 @@
+/* IRON SIGHT tokens — Ganj Utility Belt (popup HUD)
+   Source: agentic-engineering iron-sight palette (verbatim values). */
+
+:root {
+  /* Surfaces */
+  --hud-surface-0: #030306;
+  --hud-surface-1: #0a0a0f;
+  --hud-surface-2: #0d0d14;
+  --hud-surface-3: #14141f;
+  --hud-surface-4: #1a1a2e;
+
+  /* Signal — glow / matte / dim */
+  --hud-cyan: #00f0ff;
+  --hud-cyan-matte: #0a8f9e;
+  --hud-cyan-dim: #0d4f58;
+  --hud-teal: #00d4aa;
+  --hud-green: #39ff14;
+  --hud-green-matte: #2da44e;
+  --hud-amber: #ffb627;
+  --hud-amber-matte: #b8860b;
+  --hud-red: #ff4444;
+  --hud-red-matte: #b83232;
+  --hud-violet: #8957e5;
+  --hud-slate: #94a3b8;
+  --hud-slate-matte: #64748b;
+  --hud-slate-dim: #334155;
+
+  /* Text */
+  --hud-text: #b8b8d0;
+  --hud-text-bright: #e8e8f8;
+  --hud-text-dim: #6a6a8a;
+  --hud-text-muted: #7a7a9a;
+
+  /* Glass */
+  --hud-glass: rgba(10, 10, 20, 0.55);
+  --hud-glass-frost: blur(20px) saturate(1.4);
+  --hud-glass-border: rgba(0, 240, 255, 0.08);
+  --hud-border-bright: rgba(0, 240, 255, 0.22);
+  --hud-border-solid: #64748b;
+
+  /* Glow */
+  --hud-glow-cyan: 0 0 20px rgba(0, 240, 255, 0.25), 0 0 60px rgba(0, 240, 255, 0.08);
+  --hud-glow-amber: 0 0 20px rgba(255, 182, 39, 0.3), 0 0 48px rgba(255, 182, 39, 0.1);
+  --hud-glow-green: 0 0 16px rgba(57, 255, 20, 0.25);
+
+  /* Type */
+  --hud-font-display: 'Orbitron', sans-serif;
+  --hud-font-ui: 'Rajdhani', sans-serif;
+  --hud-font-mono: 'Share Tech Mono', ui-monospace, monospace;
+
+  /* Motion */
+  --hud-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --hud-micro: 100ms;
+  --hud-short: 200ms;
+  --hud-medium: 400ms;
+  --hud-pulse: 3s;
+
+  /* Spacing */
+  --hud-space-1: 4px;
+  --hud-space-2: 6px;
+  --hud-space-3: 8px;
+  --hud-space-4: 12px;
+  --hud-space-5: 16px;
+  --hud-space-6: 20px;
+
+  /* Popup chrome */
+  --hud-popup-w: 340px;
+  --hud-popup-h: 560px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --hud-pulse: 0s;
+  }
+}

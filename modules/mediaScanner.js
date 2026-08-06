@@ -68,25 +68,10 @@ const MediaScanner = (() => {
   }
 
   function formatSize(bytes) {
-    if (!bytes) return '?';
+    if (!bytes) return '';
     if (bytes < 1024) return bytes + 'B';
     if (bytes < 1048576) return (bytes / 1024).toFixed(1) + 'KB';
     return (bytes / 1048576).toFixed(1) + 'MB';
-  }
-
-  async function fetchSizes() {
-    const promises = mediaItems.map((item, i) => {
-      return new Promise((resolve) => {
-        chrome.runtime.sendMessage({ action: 'fetchUrl', url: item.src, options: { method: 'HEAD' } }, (res) => {
-          if (res?.headers?.['content-length']) {
-            mediaItems[i].size = parseInt(res.headers['content-length']) || 0;
-          }
-          resolve();
-        });
-      });
-    });
-    await Promise.all(promises);
-    mediaItems.sort((a, b) => b.size - a.size);
   }
 
   function show() {
@@ -96,6 +81,7 @@ const MediaScanner = (() => {
       return;
     }
 
+    mediaItems.sort((a, b) => (b.w * b.h) - (a.w * a.h));
     isVisible = true;
 
     overlay = document.createElement('div');
@@ -147,7 +133,7 @@ const MediaScanner = (() => {
       });
     });
 
-    fetchSizes().then(() => renderGrid('all'));
+    renderGrid('all');
   }
 
   function renderGrid(filter) {

@@ -218,13 +218,11 @@
 
   chrome.storage.sync.get(['showFloatingTimer'], (res) => {
     if (res.showFloatingTimer === undefined) {
-      chrome.storage.sync.set({ showFloatingTimer: true }, () => {
+      chrome.storage.sync.set({ showFloatingTimer: false }, () => {
         syncState();
       });
     } else {
       syncState();
     }
   });
-
-  setInterval(syncState, 5000);
 })();

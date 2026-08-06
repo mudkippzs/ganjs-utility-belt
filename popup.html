@@ -4,139 +4,129 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ganj's Utility Belt</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="hud.css">
   <script src="modules/tabSetSaver.js"></script>
   <script src="modules/pomodoro.js"></script>
   <script src="icons/popup-icons.js"></script>
   <script src="popup.js" defer></script>
 </head>
-<body>
-  <header class="popup-header">
-    <h1 class="popup-title"><span class="popup-title-icon" aria-hidden="true"></span> Ganj's Utility Belt</h1>
+<body class="belt-hud">
+  <header class="hud-chrome" role="banner">
+    <div class="hud-chrome-brand">
+      <span class="hud-mark" aria-hidden="true"></span>
+      <div class="hud-chrome-titles">
+        <span class="hud-codename">BELT</span>
+        <span class="hud-subtitle">Workspace</span>
+      </div>
+    </div>
+    <div class="hud-chrome-telemetry" aria-live="polite">
+      <span class="hud-stat" id="tabStat" title="Open tabs in this window">— TABS</span>
+      <span class="hud-mode" id="modeBadge" data-mode="idle" title="Focus system status — idle until a session starts">
+        <span class="hud-status-dot" aria-hidden="true"></span>
+        <span id="modeLabel">IDLE</span>
+      </span>
+    </div>
+    <a href="options.html" target="_blank" class="hud-gear" title="Settings — durations, sticky notes, site URL maps">
+      <span class="hud-icon" data-icon="settings"></span>
+    </a>
   </header>
 
-  <main class="popup-main">
-    <div id="siteToolsContainer"></div>
-
-    <div class="section collapsible" id="quickActionsSection" data-category="quick">
-      <h2 class="section-toggle"><span class="section-chevron" aria-hidden="true"></span> Quick Actions</h2>
-      <div class="section-body">
-        <ul class="popup-list" role="list">
-          <li class="popup-list-row" data-id="openQuickActions">
-            <span class="popup-list-icon" data-icon="quick"></span>
-            <span class="popup-list-label">Quick Actions Hub</span>
-            <span class="popup-list-shortcut">Ctrl+Shift+Q</span>
-          </li>
-        </ul>
-      </div>
+  <section id="contextRail" class="hud-context glass-panel" hidden>
+    <div class="hud-panel-chrome">
+      <span class="hud-bar" aria-hidden="true"></span>
+      <span class="hud-panel-code" id="contextCode">SITE</span>
+      <span class="hud-panel-title" id="contextTitle">Context tools</span>
     </div>
+    <div id="siteToolsContainer" class="hud-chip-row" role="list"></div>
+  </section>
 
-    <div class="section collapsible" id="devToolsSection" data-category="dev">
-      <h2 class="section-toggle"><span class="section-chevron" aria-hidden="true"></span> Developer Tools</h2>
-      <div class="section-body">
-        <ul class="popup-list" role="list">
-          <li class="popup-list-row" data-id="openCSSEditor"><span class="popup-list-icon" data-icon="css"></span><span class="popup-list-label">CSS Editor</span><span class="popup-list-shortcut"></span></li>
-          <li class="popup-list-row" data-id="openJSEditor"><span class="popup-list-icon" data-icon="js"></span><span class="popup-list-label">JS Runner</span><span class="popup-list-shortcut"></span></li>
-          <li class="popup-list-row" data-id="openCrossTabSearch"><span class="popup-list-icon" data-icon="search"></span><span class="popup-list-label">Tab Search</span><span class="popup-list-shortcut"></span></li>
-          <li class="popup-list-row" data-id="openColorTools"><span class="popup-list-icon" data-icon="color"></span><span class="popup-list-label">Color Tools</span><span class="popup-list-shortcut"></span></li>
-          <li class="popup-list-row" data-id="openNetworkTools"><span class="popup-list-icon" data-icon="network"></span><span class="popup-list-label">Network</span><span class="popup-list-shortcut"></span></li>
-          <li class="popup-list-row" data-id="openDataTools"><span class="popup-list-icon" data-icon="data"></span><span class="popup-list-label">Data Tools</span><span class="popup-list-shortcut"></span></li>
-        </ul>
+  <main class="hud-main">
+    <section class="hud-actions glass-panel" aria-label="Primary actions">
+      <div class="hud-panel-chrome">
+        <span class="hud-bar" aria-hidden="true"></span>
+        <span class="hud-panel-code">OPS</span>
+        <span class="hud-panel-title">Actions</span>
       </div>
-    </div>
-
-    <div class="section collapsible" id="productivitySection" data-category="productivity">
-      <h2 class="section-toggle"><span class="section-chevron" aria-hidden="true"></span> Productivity</h2>
-      <div class="section-body">
-        <ul class="popup-list" role="list">
-          <li class="popup-list-row" data-id="openAutoRefresh"><span class="popup-list-icon" data-icon="refresh"></span><span class="popup-list-label">Auto-Refresh</span><span class="popup-list-shortcut"></span></li>
-          <li class="popup-list-row" data-id="openTextTools"><span class="popup-list-icon" data-icon="text"></span><span class="popup-list-label">Text Tools</span><span class="popup-list-shortcut"></span></li>
-          <li class="popup-list-row" data-id="openScreenshot"><span class="popup-list-icon" data-icon="screenshot"></span><span class="popup-list-label">Screenshot</span><span class="popup-list-shortcut"></span></li>
-          <li class="popup-list-row" data-id="openRedirector"><span class="popup-list-icon" data-icon="redirect"></span><span class="popup-list-label">Redirector</span><span class="popup-list-shortcut"></span></li>
-        </ul>
+      <div class="hud-tile-grid">
+        <button type="button" class="hud-tile" id="openCrossTabSearch" title="Search text across open tabs — finds content Chrome tab search misses">
+          <span class="hud-icon" data-icon="search"></span>
+          <span class="hud-tile-label">Search</span>
+        </button>
+        <button type="button" class="hud-tile" id="openMediaScanner" title="Scan this page for images, video, audio — select and download">
+          <span class="hud-icon" data-icon="media"></span>
+          <span class="hud-tile-label">Media</span>
+        </button>
+        <button type="button" class="hud-tile" id="viewAllNotes" title="Open the notes index — all page notes across sites">
+          <span class="hud-icon" data-icon="notes"></span>
+          <span class="hud-tile-label">Notes</span>
+        </button>
+        <button type="button" class="hud-tile" id="groupTabs" title="Group tabs in this window by domain (pinned tabs stay ungrouped — Chrome limitation)">
+          <span class="hud-icon" data-icon="group"></span>
+          <span class="hud-tile-label">Group</span>
+        </button>
+        <button type="button" class="hud-tile" id="ungroupTabs" title="Remove all tab groups in this window">
+          <span class="hud-icon" data-icon="ungroup"></span>
+          <span class="hud-tile-label">Ungroup</span>
+        </button>
+        <button type="button" class="hud-tile" id="toggleSets" aria-expanded="false" aria-controls="setsPanel" title="Saved tab sets — restore a window of tabs later">
+          <span class="hud-icon" data-icon="sets"></span>
+          <span class="hud-tile-label">Sets</span>
+        </button>
       </div>
-    </div>
+    </section>
 
-    <div class="section collapsible" id="mediaSection" data-category="media">
-      <h2 class="section-toggle"><span class="section-chevron" aria-hidden="true"></span> Media Tools</h2>
-      <div class="section-body">
-        <ul class="popup-list" role="list">
-          <li class="popup-list-row" data-id="openMediaScanner"><span class="popup-list-icon" data-icon="media"></span><span class="popup-list-label">Media Scanner</span><span class="popup-list-shortcut"></span></li>
-          <li class="popup-list-row" data-id="toggleImageMagnifier"><span class="popup-list-icon" data-icon="magnifier"></span><span class="popup-list-label">Magnifier</span><span class="popup-list-shortcut"></span></li>
-        </ul>
+    <section id="setsPanel" class="hud-sets glass-panel" hidden>
+      <div class="hud-panel-chrome">
+        <span class="hud-bar hud-bar-teal" aria-hidden="true"></span>
+        <span class="hud-panel-code">SETS</span>
+        <span class="hud-panel-title">Saved windows</span>
       </div>
-    </div>
+      <form id="saveForm" class="hud-set-form">
+        <input type="text" id="setName" placeholder="Name this window…" required aria-label="Tab set name" title="Name for the current window’s tabs" />
+        <button type="submit" class="hud-btn-compact" title="Save every tab in this window under that name">
+          <span class="hud-icon" data-icon="save"></span>
+        </button>
+      </form>
+      <div id="setsContainer" class="hud-sets-list"></div>
+    </section>
 
-    <div class="section collapsible" id="notesSection" data-category="notes">
-      <h2 class="section-toggle"><span class="section-chevron" aria-hidden="true"></span> Notes</h2>
-      <div class="section-body">
-        <ul class="popup-list" role="list">
-          <li class="popup-list-row" data-id="viewAllNotes"><span class="popup-list-icon" data-icon="notes"></span><span class="popup-list-label">View All Notes</span><span class="popup-list-shortcut"></span></li>
-        </ul>
+    <section class="hud-focus glass-panel" aria-label="Focus timer" data-state="idle" id="focusPanel">
+      <div class="hud-panel-chrome">
+        <span class="hud-bar hud-bar-amber" aria-hidden="true"></span>
+        <span class="hud-panel-code">FOCUS</span>
+        <span class="hud-panel-title">Mission clock</span>
+        <button type="button" id="viewReport" class="hud-linkish" title="Focus history — session log and chart">Report</button>
       </div>
-    </div>
-
-    <div class="section collapsible" id="tabManagementSection" data-category="tabs">
-      <h2 class="section-toggle"><span class="section-chevron" aria-hidden="true"></span> Tab Management</h2>
-      <div class="section-body">
-        <ul class="popup-list" role="list">
-          <li class="popup-list-row" data-id="groupTabs"><span class="popup-list-icon" data-icon="group"></span><span class="popup-list-label">Group Tabs</span><span class="popup-list-shortcut"></span></li>
-          <li class="popup-list-row" data-id="ungroupTabs"><span class="popup-list-icon" data-icon="ungroup"></span><span class="popup-list-label">Ungroup Tabs</span><span class="popup-list-shortcut"></span></li>
-        </ul>
-      </div>
-    </div>
-
-    <div class="section collapsible" id="tabSetsSection" data-category="sets">
-      <h2 class="section-toggle"><span class="section-chevron" aria-hidden="true"></span> Tab Sets</h2>
-      <div class="section-body">
-        <form id="saveForm" class="popup-save-form">
-          <input type="text" id="setName" placeholder="Set name" required />
-          <button type="submit" class="popup-save-btn"><span class="popup-list-icon" data-icon="save"></span> Save</button>
-        </form>
-        <div id="setsContainer"></div>
-      </div>
-    </div>
-
-    <div class="section collapsible" id="pomodoroSection" data-category="pomodoro">
-      <h2 class="section-toggle"><span class="section-chevron" aria-hidden="true"></span> Pomodoro Focus</h2>
-      <div class="section-body">
-        <input id="pomodoroTask" type="text" placeholder="What are you focusing on?" />
-        <div id="pomodoroControls">
-          <div id="pomodoroTimer">25:00</div>
-          <button id="pomodoroStart" class="popup-pomodoro-btn"><span class="popup-list-icon" data-icon="play"></span> Start Focus</button>
-          <button id="pomodoroCancel" class="popup-pomodoro-btn cancel" style="display: none;"><span class="popup-list-icon" data-icon="stop"></span> Cancel</button>
-          <div class="pomodoro-options">
-            <label><input type="checkbox" id="toggleFloatingTimer" /> Floating Timer</label>
-            <label><input type="checkbox" id="toggleAutoFocus" /> Auto-start Next</label>
-            <button id="testNotifications" class="popup-util-btn">Test</button>
-            <button id="viewReport" class="popup-util-btn">Report</button>
-          </div>
+      <div class="hud-focus-body">
+        <div class="hud-timer-wrap">
+          <div id="pomodoroTimer" class="hud-timer" aria-live="polite">25:00</div>
+          <div class="hud-timer-sub" id="focusSub">Standby</div>
+        </div>
+        <input id="pomodoroTask" type="text" placeholder="Mission objective…" aria-label="Focus task" title="What you are protecting focus for — required to engage" />
+        <div class="hud-focus-actions">
+          <button type="button" id="pomodoroStart" class="hud-btn-primary" title="Start a focus session — alarm + optional floating timer">
+            Engage
+          </button>
+          <button type="button" id="pomodoroCancel" class="hud-btn-danger" hidden title="Abort the current focus or break session">
+            Abort
+          </button>
+        </div>
+        <div class="hud-focus-opts">
+          <label class="hud-check" title="Show a floating timer overlay on pages while a session runs">
+            <input type="checkbox" id="toggleFloatingTimer" />
+            <span>Float</span>
+          </label>
+          <label class="hud-check" title="Automatically start the next focus after a break ends">
+            <input type="checkbox" id="toggleAutoFocus" />
+            <span>Auto</span>
+          </label>
         </div>
       </div>
-    </div>
+    </section>
   </main>
-
-  <div aria-hidden="true" style="position:absolute;left:-9999px;width:0;height:0;overflow:hidden;">
-    <button type="button" id="openQuickActions"></button>
-    <button type="button" id="openCSSEditor"></button>
-    <button type="button" id="openJSEditor"></button>
-    <button type="button" id="openCrossTabSearch"></button>
-    <button type="button" id="openColorTools"></button>
-    <button type="button" id="openNetworkTools"></button>
-    <button type="button" id="openDataTools"></button>
-    <button type="button" id="openAutoRefresh"></button>
-    <button type="button" id="openTextTools"></button>
-    <button type="button" id="openScreenshot"></button>
-    <button type="button" id="openRedirector"></button>
-    <button type="button" id="toggleImageMagnifier"></button>
-    <button type="button" id="openMediaScanner"></button>
-    <button type="button" id="groupTabs"></button>
-    <button type="button" id="ungroupTabs"></button>
-    <button type="button" id="viewAllNotes"></button>
-  </div>
-
-  <footer class="popup-footer">
-    <a href="options.html" target="_blank" class="popup-footer-link"><span class="popup-list-icon" data-icon="settings"></span> Options</a>
-  </footer>
 </body>
 </html>

@@ -63,16 +63,26 @@ body {
 }
 
 .popup-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   margin: 0;
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--gray-900);
+}
+
+.popup-hidden-triggers {
+  position: absolute;
+  left: -9999px;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.popup-list-row:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
 }
 
 .popup-title-icon {

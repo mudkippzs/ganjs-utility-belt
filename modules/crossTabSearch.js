@@ -227,10 +227,6 @@ const CrossTabSearch = (() => {
 
   function attachKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'F') {
-        e.preventDefault();
-        toggle();
-      }
       if (e.key === 'Escape' && isVisible) {
         hide();
       }

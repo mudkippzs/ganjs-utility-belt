@@ -7,67 +7,34 @@ document.addEventListener('DOMContentLoaded', () => {
   const toggleAutoFocus = document.getElementById('toggleAutoFocus');
 
   let countdownInterval = null;
+  const focusPanel = document.getElementById('focusPanel');
+  const modeBadge = document.getElementById('modeBadge');
+  const modeLabel = document.getElementById('modeLabel');
+  const focusSub = document.getElementById('focusSub');
+  const setsPanel = document.getElementById('setsPanel');
+  const toggleSetsBtn = document.getElementById('toggleSets');
+  const contextRail = document.getElementById('contextRail');
 
   // --- Inject SVG icons ---
   const ICONS = typeof POPUP_ICONS !== 'undefined' ? POPUP_ICONS : {};
   function injectIcons() {
-    document.querySelectorAll('.popup-list-icon[data-icon]').forEach(el => {
+    document.querySelectorAll('.hud-icon[data-icon]').forEach(el => {
       const key = el.getAttribute('data-icon');
       if (ICONS[key]) el.innerHTML = ICONS[key];
     });
-    const titleIcon = document.querySelector('.popup-title-icon');
-    if (titleIcon && ICONS.belt) titleIcon.innerHTML = ICONS.belt;
-    document.querySelectorAll('.section-chevron').forEach(el => {
-      el.innerHTML = ICONS.chevronDown || '▾';
-    });
+    const mark = document.querySelector('.hud-mark');
+    if (mark && ICONS.belt) mark.innerHTML = ICONS.belt;
   }
   injectIcons();
 
-  // --- Collapsible sections ---
-  chrome.storage.sync.get(['collapsedSections'], (res) => {
-    const collapsed = res.collapsedSections || [];
-    document.querySelectorAll('.section.collapsible').forEach(section => {
-      const toggle = section.querySelector('.section-toggle');
-      const body = section.querySelector('.section-body');
-      const chevron = section.querySelector('.section-chevron');
-
-      if (collapsed.includes(section.id)) {
-        body.style.display = 'none';
-        section.classList.add('collapsed');
-        if (chevron && ICONS.chevronRight) chevron.innerHTML = ICONS.chevronRight;
-      }
-
-      toggle.addEventListener('click', () => {
-        const isCollapsed = body.style.display === 'none';
-        body.style.display = isCollapsed ? '' : 'none';
-        section.classList.toggle('collapsed', !isCollapsed);
-        if (chevron) {
-          chevron.innerHTML = isCollapsed ? (ICONS.chevronDown || '▾') : (ICONS.chevronRight || '▸');
-        }
-
-        chrome.storage.sync.get(['collapsedSections'], (r) => {
-          let list = r.collapsedSections || [];
-          if (isCollapsed) {
-            list = list.filter(id => id !== section.id);
-          } else {
-            list.push(section.id);
-          }
-          chrome.storage.sync.set({ collapsedSections: list });
-        });
-      });
-    });
+  // --- Live tab count ---
+  chrome.tabs.query({ currentWindow: true }, (tabs) => {
+    const n = (tabs || []).length;
+    const el = document.getElementById('tabStat');
+    if (el) el.textContent = `${n} TAB${n === 1 ? '' : 'S'}`;
   });
 
-  // --- Popup list row clicks (replace button IDs) ---
-  document.querySelectorAll('.popup-list-row[data-id]').forEach(row => {
-    row.addEventListener('click', () => {
-      const id = row.getAttribute('data-id');
-      const btn = document.getElementById(id);
-      if (btn) btn.click();
-    });
-  });
-
-  // --- Site-specific tools (compact list) ---
+  // --- Site context chips ---
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     if (!tabs[0]?.url) return;
     let hostname;
@@ -78,36 +45,27 @@ document.addEventListener('DOMContentLoaded', () => {
       const siteTools = getSiteTools(hostname, siteUrls);
       if (!siteTools) return;
 
-      const container = document.getElementById('siteToolsContainer');
-      const section = document.createElement('div');
-      section.className = 'section site-tools-section';
-      const devIcon = ICONS.dev ? `<span class="popup-list-icon">${ICONS.dev}</span>` : '';
-      section.innerHTML = `
-        <h2 class="site-tools-heading">${siteTools.name} Tools</h2>
-        <ul class="popup-list" role="list">
-          ${siteTools.tools.map(t => `
-            <li class="site-tool-row" data-site-tool="${t.id}" title="${t.desc || ''}">
-              ${devIcon}
-              <span class="popup-list-label">${t.label}</span>
-              <span class="popup-list-shortcut"></span>
-            </li>
-          `).join('')}
-        </ul>
-      `;
-      container.appendChild(section);
+      contextRail.hidden = false;
+      document.getElementById('contextCode').textContent = 'SITE';
+      document.getElementById('contextTitle').textContent = siteTools.name;
 
-      section.querySelectorAll('.site-tool-row').forEach(row => {
-        row.addEventListener('click', () => {
-          const toolId = row.dataset.siteTool;
-          const tool = siteTools.tools.find(t => t.id === toolId);
-          if (tool?.script) {
-            chrome.scripting.executeScript({
-              target: { tabId: tabs[0].id },
-              func: tool.script
-            });
-            window.close();
-          }
+      const container = document.getElementById('siteToolsContainer');
+      container.innerHTML = '';
+      siteTools.tools.forEach(t => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'hud-chip';
+        chip.textContent = t.label;
+        chip.title = t.desc || t.label;
+        chip.setAttribute('role', 'listitem');
+        chip.addEventListener('click', () => {
+          chrome.scripting.executeScript({
+            target: { tabId: tabs[0].id },
+            func: t.script
+          });
+          window.close();
         });
+        container.appendChild(chip);
       });
     });
   });
@@ -215,12 +173,8 @@ document.addEventListener('DOMContentLoaded', () => {
           script: () => { document.querySelectorAll('article').forEach(a => { if (!a.querySelector('img[src*="media"], video')) a.style.display = 'none'; }); }},
         { id: 'x-links', icon: '🔗', label: 'Extract Links', desc: 'Copy all links from visible tweets',
           script: () => { const links = [...new Set([...document.querySelectorAll('article a[href]')].map(a => a.href).filter(h => !h.includes('twitter.com') && !h.includes('x.com')))]; navigator.clipboard.writeText(links.join('\n')).then(() => alert(`Copied ${links.length} external links`)); }},
-        { id: 'x-stats', icon: '📊', label: 'Engagement', desc: 'Show engagement stats summary',
-          script: () => { const tweets = document.querySelectorAll('article'); let total = 0; tweets.forEach(t => { const nums = [...t.querySelectorAll('[data-testid$="count"]')].map(n => parseInt(n.textContent.replace(/[^0-9]/g, '')) || 0); total += nums.reduce((a, b) => a + b, 0); }); alert(`${tweets.length} tweets visible\nTotal engagement: ${total.toLocaleString()}`); }},
         { id: 'x-nopromo', icon: '🚫', label: 'Hide Promoted', desc: 'Remove promoted/sponsored tweets',
           script: () => { let n = 0; document.querySelectorAll('article').forEach(a => { if (a.innerText.includes('Promoted') || a.querySelector('[data-testid="placementTracking"]')) { a.closest('[data-testid="cellInnerDiv"]')?.remove(); n++; } }); alert(`Removed ${n} promoted tweets`); }},
-        { id: 'x-translate', icon: '🌐', label: 'Translate All', desc: 'Click all "Translate" buttons',
-          script: () => { document.querySelectorAll('[data-testid="tweetText"] + div span[role="button"]').forEach(b => { if (b.textContent.includes('Translate')) b.click(); }); }},
       ]
     };
 
@@ -228,17 +182,15 @@ document.addEventListener('DOMContentLoaded', () => {
       name: 'YouTube', icon: '▶️',
       tools: [
         { id: 'yt-speed', icon: '⏩', label: 'Speed 2x', desc: 'Set video playback to 2x speed',
-          script: () => { const v = document.querySelector('video'); if (v) { v.playbackRate = 2; alert('Playback speed: 2x'); } }},
+          script: () => { const v = document.querySelector('video'); if (v) { v.playbackRate = 2; } }},
         { id: 'yt-speed1', icon: '▶️', label: 'Speed 1x', desc: 'Reset to normal speed',
-          script: () => { const v = document.querySelector('video'); if (v) { v.playbackRate = 1; alert('Playback speed: 1x'); } }},
+          script: () => { const v = document.querySelector('video'); if (v) { v.playbackRate = 1; } }},
         { id: 'yt-loop', icon: '🔁', label: 'Loop', desc: 'Toggle video loop',
-          script: () => { const v = document.querySelector('video'); if (v) { v.loop = !v.loop; alert(`Loop: ${v.loop ? 'ON' : 'OFF'}`); } }},
+          script: () => { const v = document.querySelector('video'); if (v) { v.loop = !v.loop; } }},
         { id: 'yt-screenshot', icon: '📸', label: 'Frame Cap', desc: 'Screenshot current video frame',
           script: () => { const v = document.querySelector('video'); if (!v) return; const c = document.createElement('canvas'); c.width = v.videoWidth; c.height = v.videoHeight; c.getContext('2d').drawImage(v, 0, 0); const a = document.createElement('a'); a.download = `yt-frame-${Date.now()}.png`; a.href = c.toDataURL(); a.click(); }},
         { id: 'yt-chapters', icon: '📑', label: 'Chapters', desc: 'Extract chapter timestamps',
           script: () => { const chapters = [...document.querySelectorAll('#description ytd-macro-markers-list-item-renderer, .ytd-macro-markers-list-item-renderer')].map(c => c.innerText.trim()); if (chapters.length) { navigator.clipboard.writeText(chapters.join('\n')); alert(`Copied ${chapters.length} chapters`); } else { const desc = document.querySelector('#description-inner')?.innerText || ''; const ts = desc.match(/\d{1,2}:\d{2}(?::\d{2})?.*/g); if (ts) { navigator.clipboard.writeText(ts.join('\n')); alert(`Copied ${ts.length} timestamps`); } else alert('No chapters found'); } }},
-        { id: 'yt-transcript', icon: '📝', label: 'Transcript', desc: 'Open transcript panel',
-          script: () => { const btn = [...document.querySelectorAll('button, ytd-button-renderer')].find(b => b.innerText?.includes('transcript') || b.innerText?.includes('Transcript') || b.ariaLabel?.includes('transcript')); if (btn) btn.click(); else alert('Transcript button not found — try opening the description first'); }},
         { id: 'yt-dl', icon: '💾', label: 'Download', desc: 'Copy yt-dlp command or video URL',
           script: () => {
             const url = window.location.href;
@@ -277,8 +229,6 @@ document.addEventListener('DOMContentLoaded', () => {
           script: () => { const imgs = [...document.querySelectorAll('img.image-placeholder, img[src*="i.imgur.com"]')].map(i => i.src).filter(s => s.includes('i.imgur.com')); if (!imgs.length) { alert('No images found'); return; } imgs.forEach((src, i) => { setTimeout(() => { const a = document.createElement('a'); a.href = src; a.download = `imgur-${i+1}.jpg`; a.click(); }, i * 300); }); alert(`Downloading ${imgs.length} images...`); }},
         { id: 'im-links', icon: '🔗', label: 'Copy Links', desc: 'Copy direct image links',
           script: () => { const imgs = [...document.querySelectorAll('img[src*="i.imgur.com"]')].map(i => i.src); navigator.clipboard.writeText(imgs.join('\n')).then(() => alert(`Copied ${imgs.length} image links`)); }},
-        { id: 'im-grid', icon: '🔲', label: 'Grid View', desc: 'Arrange images in a grid',
-          script: () => { const container = document.querySelector('.post-images, .post-image-container, main'); if (container) { container.style.display = 'grid'; container.style.gridTemplateColumns = 'repeat(auto-fill, minmax(250px, 1fr))'; container.style.gap = '8px'; container.querySelectorAll('img').forEach(i => { i.style.width = '100%'; i.style.height = 'auto'; }); } }},
         { id: 'im-titles', icon: '📋', label: 'Copy Titles', desc: 'Copy all image titles/descriptions',
           script: () => { const titles = [...document.querySelectorAll('.post-image-title, .Gallery-Title, h1')].map(t => t.innerText.trim()).filter(Boolean); navigator.clipboard.writeText(titles.join('\n')).then(() => alert(`Copied ${titles.length} titles`)); }},
       ]
@@ -344,40 +294,6 @@ document.addEventListener('DOMContentLoaded', () => {
               img.classList.remove('expanded-thumb');
             });
           }},
-        { id: 'ch-gallery', icon: '🔲', label: 'Gallery', desc: 'View all images in a grid gallery',
-          script: () => {
-            const files = [...document.querySelectorAll('.fileThumb, a.fileThumb')].map(a => a.href).filter(h => h && /\.(jpg|png|gif|webm)/i.test(h));
-            if (!files.length) { alert('No files found'); return; }
-            const overlay = document.createElement('div');
-            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.95);z-index:999999;overflow:auto;padding:20px;';
-            const close = document.createElement('button');
-            close.textContent = '✕ Close';
-            close.style.cssText = 'position:fixed;top:10px;right:20px;z-index:1000000;background:#dc2626;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:14px;';
-            close.onclick = () => overlay.remove();
-            overlay.appendChild(close);
-            const grid = document.createElement('div');
-            grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;padding-top:40px;';
-            files.forEach(src => {
-              const item = document.createElement('div');
-              item.style.cssText = 'border-radius:6px;overflow:hidden;cursor:pointer;background:#1e293b;';
-              if (/\.(webm|mp4)/i.test(src)) {
-                item.innerHTML = `<video src="${src}" style="width:100%;display:block;" preload="metadata" muted></video>`;
-                item.querySelector('video').addEventListener('mouseenter', function() { this.play(); });
-                item.querySelector('video').addEventListener('mouseleave', function() { this.pause(); this.currentTime = 0; });
-              } else {
-                item.innerHTML = `<img src="${src}" style="width:100%;display:block;" loading="lazy">`;
-              }
-              item.addEventListener('click', () => { window.open(src, '_blank'); });
-              grid.appendChild(item);
-            });
-            const count = document.createElement('div');
-            count.textContent = `${files.length} files`;
-            count.style.cssText = 'position:fixed;top:14px;left:20px;color:white;font-size:14px;z-index:1000000;font-family:sans-serif;';
-            overlay.appendChild(count);
-            overlay.appendChild(grid);
-            document.body.appendChild(overlay);
-            document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', esc); } });
-          }},
         { id: 'ch-text', icon: '📋', label: 'Copy Thread', desc: 'Copy all post text in thread',
           script: () => {
             const posts = [...document.querySelectorAll('.postMessage, blockquote.postMessage')].map((p, i) => {
@@ -385,21 +301,6 @@ document.addEventListener('DOMContentLoaded', () => {
               return `>> ${id}\n${p.innerText.trim()}`;
             });
             navigator.clipboard.writeText(posts.join('\n\n')).then(() => alert(`Copied ${posts.length} posts`));
-          }},
-        { id: 'ch-dead', icon: '💀', label: 'Dead Links', desc: 'Highlight dead quote links',
-          script: () => {
-            const postIds = new Set([...document.querySelectorAll('.post, .postContainer')].map(p => p.id.replace('pc', '').replace('p', '')));
-            let n = 0;
-            document.querySelectorAll('.quotelink').forEach(a => {
-              const target = a.textContent.replace('>>', '').trim();
-              if (target && !postIds.has(target) && !a.href.includes('#p')) {
-                a.style.color = '#dc2626';
-                a.style.textDecoration = 'line-through';
-                a.title = 'Dead link';
-                n++;
-              }
-            });
-            alert(`Found ${n} dead quote links`);
           }},
       ]
     };
@@ -409,58 +310,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Settings restore ---
   chrome.storage.sync.get(['showFloatingTimer', 'autoStartNextFocus'], (res) => {
-    toggleFloatingTimer.checked = res.showFloatingTimer !== false;
+    toggleFloatingTimer.checked = res.showFloatingTimer === true;
     toggleAutoFocus.checked = res.autoStartNextFocus ?? false;
     if (res.showFloatingTimer === undefined) {
-      chrome.storage.sync.set({ showFloatingTimer: true });
+      chrome.storage.sync.set({ showFloatingTimer: false });
     }
   });
 
-  // --- Tool toggle helper (invoked by popup-list-row data-id or by hidden buttons) ---
-  function bindToolToggle(buttonId, globalName) {
+  // --- On-demand page tools ---
+  function bindPageTool(buttonId, toolName) {
     const btn = document.getElementById(buttonId);
     if (!btn) return;
     btn.addEventListener('click', () => {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (!tabs[0]) return;
-        chrome.scripting.executeScript({
-          target: { tabId: tabs[0].id },
-          func: (name) => { if (window[name]) window[name].toggle(); },
-          args: [globalName]
+        if (!tabs[0]?.id) return;
+        chrome.runtime.sendMessage({
+          action: 'openPageTool',
+          tabId: tabs[0].id,
+          tool: toolName
         });
       });
       window.close();
     });
   }
 
-  // Hidden buttons for list-row delegation (keep in DOM for click() delegation)
-  const toolBindings = [
-    ['openQuickActions', 'QuickActions'],
-    ['openCSSEditor', 'CSSEditor'],
-    ['openJSEditor', 'JSEditor'],
-    ['openCrossTabSearch', 'CrossTabSearch'],
-    ['openColorTools', 'ColorTools'],
-    ['openNetworkTools', 'NetworkTools'],
-    ['openDataTools', 'DataTools'],
-    ['openAutoRefresh', 'AutoRefresh'],
-    ['openTextTools', 'TextTools'],
-    ['openScreenshot', 'ScreenshotTools'],
-    ['openRedirector', 'URLRedirector'],
-    ['toggleImageMagnifier', 'ImageMagnifier'],
-    ['openMediaScanner', 'MediaScanner'],
-  ];
-  toolBindings.forEach(([id, name]) => bindToolToggle(id, name));
-
-  // --- Notification test ---
-  document.getElementById('testNotifications').addEventListener('click', () => {
-    Notification.requestPermission().then((permission) => {
-      if (permission === 'granted') {
-        chrome.runtime.sendMessage({ action: 'testNotification' });
-      } else {
-        alert('Notifications are disabled. Please enable them in Chrome settings to receive Pomodoro alerts.');
-      }
-    });
-  });
+  bindPageTool('openCrossTabSearch', 'CrossTabSearch');
+  bindPageTool('openMediaScanner', 'MediaScanner');
 
   // --- Pomodoro start button state ---
   function updateStartButtonState() {
@@ -502,6 +377,14 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // --- Pomodoro UI helpers ---
+  function setMode(mode, sub) {
+    const m = mode || 'idle';
+    if (modeBadge) modeBadge.dataset.mode = m;
+    if (modeLabel) modeLabel.textContent = m.toUpperCase();
+    if (focusPanel) focusPanel.dataset.state = m;
+    if (focusSub) focusSub.textContent = sub || (m === 'idle' ? 'Standby' : m === 'focus' ? 'Engaged' : 'Recovery');
+  }
+
   function resetPomodoroUI() {
     clearInterval(countdownInterval);
     Pomodoro.getSettings().then(settings => {
@@ -511,8 +394,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     pomodoroTask.value = '';
     pomodoroTask.disabled = false;
-    pomodoroStart.style.display = 'block';
-    pomodoroCancel.style.display = 'none';
+    pomodoroStart.hidden = false;
+    pomodoroCancel.hidden = true;
+    setMode('idle', 'Standby');
     updateStartButtonState();
   }
 
@@ -526,7 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
     clearInterval(countdownInterval);
     if (paused && msRemaining) {
       updateDisplay(msRemaining);
-      pomodoroTimer.textContent += ' (Paused)';
+      if (focusSub) focusSub.textContent = 'Paused';
       return;
     }
 
@@ -557,11 +441,13 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const msLeft = paused && remaining ? remaining : state.endTime - Date.now();
+      const mode = state.type === 'break' ? 'break' : 'focus';
+      setMode(mode, paused ? 'Paused' : (state.longBreak ? 'Long break' : (mode === 'focus' ? (state.task || 'Engaged') : 'Recovery')));
 
       pomodoroTask.value = state.type === 'break' ? 'Break' : state.task || '';
       pomodoroTask.disabled = true;
-      pomodoroStart.style.display = 'none';
-      pomodoroCancel.style.display = 'block';
+      pomodoroStart.hidden = true;
+      pomodoroCancel.hidden = false;
 
       startCountdown(state.endTime, paused, msLeft);
     });
@@ -584,12 +470,23 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.runtime.sendMessage({ action: 'ungroupTabs' });
   });
 
-  // --- Tab sets ---
+  // --- Sets drawer ---
+  toggleSetsBtn.addEventListener('click', () => {
+    const open = setsPanel.hidden;
+    setsPanel.hidden = !open;
+    toggleSetsBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+
   const saveForm = document.getElementById('saveForm');
   const setNameInput = document.getElementById('setName');
   const setsContainer = document.getElementById('setsContainer');
 
-  TabSetSaver.getAllSets().then(renderSets);
+  TabSetSaver.getAllSets().then((sets) => {
+    renderSets(sets);
+    if (Object.keys(sets).length > 0) {
+      // keep closed by default — operator opens Sets tile
+    }
+  });
 
   saveForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -599,6 +496,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setNameInput.value = '';
     const sets = await TabSetSaver.getAllSets();
     renderSets(sets);
+    setsPanel.hidden = false;
+    toggleSetsBtn.setAttribute('aria-expanded', 'true');
   });
 
   function renderSets(sets) {
@@ -606,40 +505,46 @@ document.addEventListener('DOMContentLoaded', () => {
     const entries = Object.entries(sets);
 
     if (entries.length === 0) {
-      setsContainer.innerHTML = '<div class="empty-state">No saved tab sets yet</div>';
+      setsContainer.innerHTML = '<div class="hud-empty">NO SETS STORED</div>';
       return;
     }
 
     entries.forEach(([name, tabs]) => {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'tabSet';
+      const row = document.createElement('div');
+      row.className = 'hud-set-row';
 
-      const title = document.createElement('div');
-      title.className = 'tabSet-title';
-      title.textContent = `${name} (${tabs.length} tabs)`;
+      const title = document.createElement('span');
+      title.className = 'hud-set-name';
+      title.textContent = name;
+      title.title = name;
 
-      const actions = document.createElement('div');
-      actions.className = 'tabSet-actions';
+      const count = document.createElement('span');
+      count.className = 'hud-set-count';
+      count.textContent = String(tabs.length);
 
       const openBtn = document.createElement('button');
+      openBtn.type = 'button';
       openBtn.textContent = 'Open';
+      openBtn.title = `Open all ${tabs.length} tabs from “${name}”`;
       openBtn.onclick = () => {
         chrome.runtime.sendMessage({ action: 'openTabSet', setName: name });
       };
 
       const deleteBtn = document.createElement('button');
-      deleteBtn.textContent = 'Delete';
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'danger';
+      deleteBtn.textContent = 'Del';
+      deleteBtn.title = `Delete set “${name}”`;
       deleteBtn.onclick = async () => {
         await TabSetSaver.deleteSet(name);
-        const updated = await TabSetSaver.getAllSets();
-        renderSets(updated);
+        renderSets(await TabSetSaver.getAllSets());
       };
 
-      actions.appendChild(openBtn);
-      actions.appendChild(deleteBtn);
-      wrapper.appendChild(title);
-      wrapper.appendChild(actions);
-      setsContainer.appendChild(wrapper);
+      row.appendChild(title);
+      row.appendChild(count);
+      row.appendChild(openBtn);
+      row.appendChild(deleteBtn);
+      setsContainer.appendChild(row);
     });
   }
 });

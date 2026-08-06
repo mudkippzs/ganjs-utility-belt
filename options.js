@@ -16,8 +16,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('focusDuration').value = pomo.focusDuration || 1500000;
     document.getElementById('shortBreakDuration').value = pomo.shortBreakDuration || 300000;
     document.getElementById('longBreakDuration').value = pomo.longBreakDuration || 900000;
+    document.getElementById('sessionsBeforeLongBreak').value = pomo.sessionsBeforeLongBreak || 4;
     document.getElementById('autoStartNextFocus').checked = res.autoStartNextFocus ?? false;
-    document.getElementById('showFloatingTimer').checked = res.showFloatingTimer !== false;
+    document.getElementById('showFloatingTimer').checked = res.showFloatingTimer === true;
     document.getElementById('autoGroupTabs').checked = res.autoGroupTabs ?? false;
 
     const sticky = res.stickySettings || {};
@@ -32,7 +33,8 @@ document.addEventListener('DOMContentLoaded', () => {
       pomodoroSettings: {
         focusDuration: parseInt(document.getElementById('focusDuration').value),
         shortBreakDuration: parseInt(document.getElementById('shortBreakDuration').value),
-        longBreakDuration: parseInt(document.getElementById('longBreakDuration').value)
+        longBreakDuration: parseInt(document.getElementById('longBreakDuration').value),
+        sessionsBeforeLongBreak: parseInt(document.getElementById('sessionsBeforeLongBreak').value)
       },
       autoStartNextFocus: document.getElementById('autoStartNextFocus').checked,
       showFloatingTimer: document.getElementById('showFloatingTimer').checked,

@@ -1,4 +1,5 @@
 node_modules/
+prompts/
 *.backup
 *.bak
 .DS_Store

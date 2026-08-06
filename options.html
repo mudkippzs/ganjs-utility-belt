@@ -55,6 +55,19 @@
     </div>
     <div class="setting-row">
       <div>
+        <div class="setting-label">Sessions Before Long Break</div>
+        <div class="setting-desc">Long break after this many completed focus sessions</div>
+      </div>
+      <select id="sessionsBeforeLongBreak">
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4" selected>4</option>
+        <option value="5">5</option>
+        <option value="6">6</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <div>
         <div class="setting-label">Auto-start Next Focus</div>
         <div class="setting-desc">Automatically begin next focus after break</div>
       </div>
@@ -69,7 +82,7 @@
         <div class="setting-desc">Show timer overlay on pages during focus</div>
       </div>
       <label class="toggle">
-        <input type="checkbox" id="showFloatingTimer" checked>
+        <input type="checkbox" id="showFloatingTimer">
         <span class="toggle-slider"></span>
       </label>
     </div>
@@ -170,13 +183,9 @@
 
   <!-- Keyboard Shortcuts Reference -->
   <section>
-    <h2>⌨️ Keyboard Shortcuts</h2>
-    <div class="setting-row"><div class="setting-label">Quick Actions Hub</div><div class="setting-desc">Ctrl+Shift+Q</div></div>
-    <div class="setting-row"><div class="setting-label">CSS Live Editor</div><div class="setting-desc">Ctrl+Shift+C</div></div>
-    <div class="setting-row"><div class="setting-label">JS Code Runner</div><div class="setting-desc">Ctrl+Shift+J</div></div>
-    <div class="setting-row"><div class="setting-label">Cross-Tab Search</div><div class="setting-desc">Ctrl+Shift+F</div></div>
-    <div class="setting-row"><div class="setting-label">Screenshot Tools</div><div class="setting-desc">Ctrl+Shift+S</div></div>
-    <div class="setting-row"><div class="setting-label">Image Magnifier</div><div class="setting-desc">Ctrl+Shift+M</div></div>
+    <h2>Keyboard Shortcuts</h2>
+    <div class="setting-row"><div class="setting-label">Tab Search / Media Scan</div><div class="setting-desc">Open from the popup or context menu</div></div>
+    <div class="setting-row"><div class="setting-label">Create sticky note</div><div class="setting-desc">Right-click page → Create Note Here</div></div>
   </section>
 
   <div id="toast" class="toast">Settings saved</div>

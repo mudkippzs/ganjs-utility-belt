@@ -80,6 +80,48 @@ function isWebUrl(url) {
   return url && /^https?:\/\//.test(url);
 }
 
+/** Canonical sticky-note page key: origin + pathname (no query/hash). */
+function pageKeyFromUrl(url) {
+  try {
+    const u = new URL(url);
+    return u.origin + u.pathname;
+  } catch {
+    return null;
+  }
+}
+
+const PAGE_TOOL_FILES = {
+  MediaScanner: ['modules/mediaScanner.js'],
+  CrossTabSearch: ['modules/crossTabSearch.js']
+};
+
+function openPageTool(tabId, globalName) {
+  const files = PAGE_TOOL_FILES[globalName];
+  if (!files || !tabId) return;
+  chrome.scripting.insertCSS({
+    target: { tabId },
+    files: ['content-styles.css']
+  }, () => {
+    void chrome.runtime.lastError;
+    chrome.scripting.executeScript({
+      target: { tabId },
+      files
+    }, () => {
+      if (chrome.runtime.lastError) return;
+      chrome.scripting.executeScript({
+        target: { tabId },
+        func: (name) => {
+          const tool = window[name];
+          if (!tool) return;
+          if (typeof tool.init === 'function') tool.init();
+          if (typeof tool.toggle === 'function') tool.toggle();
+        },
+        args: [globalName]
+      });
+    });
+  });
+}
+
 function notify(id, title, message) {
   chrome.notifications.create(id + '-' + Date.now(), {
     type: 'basic',
@@ -121,9 +163,13 @@ chrome.alarms.onAlarm.addListener((alarm) => {
       const state = localRes.pomodoroState;
       const logs = localRes.pomodoroLogs || [];
       const autoStart = syncRes.autoStartNextFocus ?? false;
-      const settings = syncRes.pomodoroSettings || {};
-      const focusDuration = settings.focusDuration || 25 * 60 * 1000;
-      const breakDuration = settings.shortBreakDuration || 5 * 60 * 1000;
+      const settings = {
+        focusDuration: 25 * 60 * 1000,
+        shortBreakDuration: 5 * 60 * 1000,
+        longBreakDuration: 15 * 60 * 1000,
+        sessionsBeforeLongBreak: 4,
+        ...(syncRes.pomodoroSettings || {})
+      };
 
       if (!state) return;
 
@@ -134,25 +180,47 @@ chrome.alarms.onAlarm.addListener((alarm) => {
           task: state.task || ''
         });
 
+        const completed = (state.focusCompleted || 0) + 1;
+        const useLong = completed % settings.sessionsBeforeLongBreak === 0;
+        const breakDuration = useLong
+          ? settings.longBreakDuration
+          : settings.shortBreakDuration;
         const breakEnd = Date.now() + breakDuration;
         chrome.storage.local.set({
           pomodoroLogs: logs,
-          pomodoroState: { type: 'break', startTime: Date.now(), endTime: breakEnd, task: '' },
+          pomodoroState: {
+            type: 'break',
+            startTime: Date.now(),
+            endTime: breakEnd,
+            task: '',
+            focusCompleted: completed,
+            longBreak: useLong
+          },
           pomodoroPaused: false,
           pomodoroRemaining: null
         }, () => {
           chrome.alarms.clear('pomodoroTimer', () => {
             chrome.alarms.create('pomodoroTimer', { when: breakEnd });
-            notify('focusComplete', 'Focus Complete!', 'Time to take a break!');
+            notify(
+              'focusComplete',
+              'Focus Complete!',
+              useLong ? 'Time for a long break!' : 'Time to take a break!'
+            );
           });
         });
 
       } else if (state.type === 'break') {
         chrome.alarms.clear('pomodoroTimer', () => {
           if (autoStart) {
-            const focusEnd = Date.now() + focusDuration;
+            const focusEnd = Date.now() + settings.focusDuration;
             chrome.storage.local.set({
-              pomodoroState: { type: 'focus', startTime: Date.now(), endTime: focusEnd, task: state.task || '' },
+              pomodoroState: {
+                type: 'focus',
+                startTime: Date.now(),
+                endTime: focusEnd,
+                task: state.task || '',
+                focusCompleted: state.focusCompleted || 0
+              },
               pomodoroPaused: false,
               pomodoroRemaining: null
             }, () => {
@@ -174,67 +242,28 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.removeAll(() => {
-    // Top-level quick access
-    chrome.contextMenus.create({ id: 'stickyNote', title: '📝 Create Note Here', contexts: ['page'] });
-    chrome.contextMenus.create({ id: 'annotateSelection', title: '📌 Annotate Selection', contexts: ['selection'] });
-    chrome.contextMenus.create({ id: 'annotateImage', title: '🖼️ Annotate Image', contexts: ['image'] });
-    chrome.contextMenus.create({ id: 'annotateVideo', title: '🎥 Annotate Video', contexts: ['video'] });
-    chrome.contextMenus.create({ id: 'mediaScanner', title: '📁 Scan Page Media', contexts: ['page'] });
-    chrome.contextMenus.create({ id: 'screenshot', title: '📸 Screenshot', contexts: ['page'] });
-    chrome.contextMenus.create({ id: 'quickActions', title: '🚀 Quick Actions', contexts: ['page'] });
+    chrome.contextMenus.create({ id: 'stickyNote', title: 'Create Note Here', contexts: ['page'] });
+    chrome.contextMenus.create({ id: 'annotateSelection', title: 'Annotate Selection', contexts: ['selection'] });
+    chrome.contextMenus.create({ id: 'annotateImage', title: 'Annotate Image', contexts: ['image'] });
+    chrome.contextMenus.create({ id: 'annotateVideo', title: 'Annotate Video', contexts: ['video'] });
     chrome.contextMenus.create({ id: 'sep1', type: 'separator', contexts: ['page'] });
-
-    // Developer Tools submenu
-    chrome.contextMenus.create({ id: 'devTools', title: '💻 Developer Tools', contexts: ['page'] });
-    chrome.contextMenus.create({ id: 'cssEditor', parentId: 'devTools', title: '🎨 CSS Editor', contexts: ['page'] });
-    chrome.contextMenus.create({ id: 'jsEditor', parentId: 'devTools', title: '💻 JS Editor', contexts: ['page'] });
-    chrome.contextMenus.create({ id: 'networkTools', parentId: 'devTools', title: '🌐 Network Tools', contexts: ['page'] });
-    chrome.contextMenus.create({ id: 'dataTools', parentId: 'devTools', title: '📊 Data Tools', contexts: ['page'] });
-    chrome.contextMenus.create({ id: 'colorTools', parentId: 'devTools', title: '🎨 Color Tools', contexts: ['page'] });
-
-    // Productivity submenu
-    chrome.contextMenus.create({ id: 'productivity', title: '⚡ Productivity', contexts: ['page'] });
-    chrome.contextMenus.create({ id: 'crossTabSearch', parentId: 'productivity', title: '🔍 Cross-Tab Search', contexts: ['page'] });
-    chrome.contextMenus.create({ id: 'textTools', parentId: 'productivity', title: '📝 Text Tools', contexts: ['page'] });
-    chrome.contextMenus.create({ id: 'autoRefresh', parentId: 'productivity', title: '⏱️ Auto-Refresh', contexts: ['page'] });
-    chrome.contextMenus.create({ id: 'redirector', parentId: 'productivity', title: '🔄 URL Redirector', contexts: ['page'] });
-    chrome.contextMenus.create({ id: 'imageMagnifier', parentId: 'productivity', title: '🔍 Image Magnifier', contexts: ['page'] });
-
-    // Tab Management submenu
-    chrome.contextMenus.create({ id: 'tabMgmt', title: '🗃️ Tab Management', contexts: ['page'] });
-    chrome.contextMenus.create({ id: 'groupTabs', parentId: 'tabMgmt', title: '📦 Group Tabs by Domain', contexts: ['page'] });
-    chrome.contextMenus.create({ id: 'ungroupTabs', parentId: 'tabMgmt', title: '🧹 Ungroup All Tabs', contexts: ['page'] });
+    chrome.contextMenus.create({ id: 'mediaScanner', title: 'Scan Page Media', contexts: ['page'] });
+    chrome.contextMenus.create({ id: 'crossTabSearch', title: 'Search Across Tabs', contexts: ['page'] });
+    chrome.contextMenus.create({ id: 'sep2', type: 'separator', contexts: ['page'] });
+    chrome.contextMenus.create({ id: 'groupTabs', title: 'Group Tabs by Domain', contexts: ['page'] });
+    chrome.contextMenus.create({ id: 'ungroupTabs', title: 'Ungroup All Tabs', contexts: ['page'] });
   });
 
   chrome.storage.sync.get(['showFloatingTimer'], (res) => {
     if (res.showFloatingTimer === undefined) {
-      chrome.storage.sync.set({ showFloatingTimer: true });
-    }
-  });
-
-  chrome.storage.local.get(['redirectRules'], (result) => {
-    if (!result.redirectRules) {
-      chrome.storage.local.set({ redirectRules: [] });
+      chrome.storage.sync.set({ showFloatingTimer: false });
     }
   });
 });
 
-// --- Context menu handler ---
-
 const TOOL_TOGGLE_MAP = {
   mediaScanner: 'MediaScanner',
-  screenshot: 'ScreenshotTools',
-  quickActions: 'QuickActions',
-  cssEditor: 'CSSEditor',
-  jsEditor: 'JSEditor',
-  networkTools: 'NetworkTools',
-  dataTools: 'DataTools',
-  colorTools: 'ColorTools',
-  crossTabSearch: 'CrossTabSearch',
-  textTools: 'TextTools',
-  autoRefresh: 'AutoRefresh',
-  redirector: 'URLRedirector',
-  imageMagnifier: 'ImageMagnifier',
+  crossTabSearch: 'CrossTabSearch'
 };
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
@@ -245,38 +274,67 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     chrome.tabs.sendMessage(tab.id, { action: 'getClickContext' }, (ctx) => {
       if (chrome.runtime.lastError) return;
 
-      let cleanUrl;
-      try { const u = new URL(tab.url); u.hash = ''; cleanUrl = u.toString(); }
-      catch { return; }
+      const cleanUrl = pageKeyFromUrl(tab.url);
+      if (!cleanUrl) return;
 
-      const noteData = {
-        x: ctx?.coords?.x || 100, y: ctx?.coords?.y || 100,
-        content: '', title: '', tags: [],
-        color: '#fde68a', url: cleanUrl,
-        id: `${Date.now()}-${Math.random()}`,
-        collapsed: false
-      };
+      chrome.storage.sync.get(['stickySettings'], (syncRes) => {
+        const color = syncRes.stickySettings?.color || '#fde68a';
+        const noteData = {
+          x: ctx?.coords?.x || 100, y: ctx?.coords?.y || 100,
+          content: '', title: '', tags: [],
+          color, url: cleanUrl,
+          id: `${Date.now()}-${Math.random()}`,
+          collapsed: false
+        };
 
-      if (info.menuItemId === 'annotateSelection' && (info.selectionText || ctx?.selection)) {
-        noteData.anchorText = info.selectionText || ctx.selection;
-        noteData.content = `> ${noteData.anchorText}\n\n`;
-      }
+        if (info.menuItemId === 'annotateSelection' && (info.selectionText || ctx?.selection)) {
+          noteData.anchorText = (info.selectionText || ctx.selection).trim();
+          noteData.anchorKind = 'text';
+          noteData.content = `> ${noteData.anchorText}\n\n`;
+        }
 
-      if (info.menuItemId === 'annotateImage' && info.srcUrl) {
-        noteData.media = { type: 'image', src: info.srcUrl };
-        noteData.content = `![image](${info.srcUrl})\n\n`;
-      }
+        // Plain "Create Note" with a live selection also anchors + highlights text
+        if (info.menuItemId === 'stickyNote' && (info.selectionText || ctx?.selection)) {
+          noteData.anchorText = (info.selectionText || ctx.selection).trim();
+          if (noteData.anchorText) {
+            noteData.anchorKind = 'text';
+            noteData.content = `> ${noteData.anchorText}\n\n`;
+          }
+        }
 
-      if (info.menuItemId === 'annotateVideo' && info.srcUrl) {
-        noteData.media = { type: 'video', src: info.srcUrl };
-        noteData.content = `🎥 [Video](${info.srcUrl})\n\n`;
-      }
+        if (info.menuItemId === 'annotateImage' && info.srcUrl) {
+          noteData.media = { type: 'image', src: info.srcUrl };
+          noteData.anchorKind = 'media';
+          noteData.content = `![image](${info.srcUrl})\n\n`;
+        }
 
-      chrome.storage.local.get({ stickyNotes: [] }, ({ stickyNotes }) => {
-        stickyNotes.push(noteData);
-        chrome.storage.local.set({ stickyNotes }, () => {
-          chrome.tabs.sendMessage(tab.id, { action: 'restoreStickyNotes', notes: [noteData] }, () => {
-            void chrome.runtime.lastError;
+        if (info.menuItemId === 'annotateVideo' && info.srcUrl) {
+          noteData.media = { type: 'video', src: info.srcUrl };
+          noteData.anchorKind = 'media';
+          noteData.content = `🎥 [Video](${info.srcUrl})\n\n`;
+        }
+
+        // In-page highlight target: text selection, else the right-clicked element (incl. img/video)
+        if (ctx?.elementSelector && ctx.elementTag && !['HTML', 'BODY'].includes(ctx.elementTag)) {
+          const isMedia = ctx.elementTag === 'IMG' || ctx.elementTag === 'VIDEO' || noteData.media;
+          if (noteData.anchorText && !isMedia) {
+            // text note — highlight comes from anchorText only (no element wrap)
+          } else if (isMedia || !noteData.anchorText) {
+            noteData.anchorSelector = ctx.elementSelector;
+            noteData.anchorKind = isMedia ? 'media' : 'element';
+          }
+        }
+        // Fallback: find media by src if context menu gave srcUrl but no selector
+        if (noteData.media?.src && !noteData.anchorSelector) {
+          noteData.mediaSrc = noteData.media.src;
+        }
+
+        chrome.storage.local.get({ stickyNotes: [] }, ({ stickyNotes }) => {
+          stickyNotes.push(noteData);
+          chrome.storage.local.set({ stickyNotes }, () => {
+            chrome.tabs.sendMessage(tab.id, { action: 'restoreStickyNotes', notes: [noteData] }, () => {
+              void chrome.runtime.lastError;
+            });
           });
         });
       });
@@ -291,15 +349,8 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     return;
   }
 
-  // Tool toggles
   const globalName = TOOL_TOGGLE_MAP[info.menuItemId];
-  if (globalName) {
-    chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: (name) => { if (window[name]) window[name].toggle(); },
-      args: [globalName]
-    });
-  }
+  if (globalName) openPageTool(tab.id, globalName);
 });
 
 // --- Unified message handler ---
@@ -318,23 +369,30 @@ const messageHandlers = {
     const url = sender?.tab?.url;
     if (!url || !isWebUrl(url)) return sendResponse({ notes: [] });
 
-    let compareUrl;
-    try {
-      const parsed = new URL(url);
-      parsed.hash = '';
-      compareUrl = parsed.toString();
-    } catch { return sendResponse({ notes: [] }); }
+    const compareUrl = pageKeyFromUrl(url);
+    if (!compareUrl) return sendResponse({ notes: [] });
 
     chrome.storage.local.get({ stickyNotes: [] }, ({ stickyNotes }) => {
-      sendResponse({ notes: stickyNotes.filter(n => n.url === compareUrl) });
+      sendResponse({
+        notes: stickyNotes.filter(n => pageKeyFromUrl(n.url) === compareUrl)
+      });
     });
     return true;
+  },
+
+  openPageTool(message, sender, sendResponse) {
+    const tabId = message.tabId || sender?.tab?.id;
+    if (!tabId || !message.tool) return;
+    openPageTool(tabId, message.tool);
+    sendResponse({ ok: true });
   },
 
   groupTabs(message, sender, sendResponse) {
     chrome.tabs.query({ currentWindow: true }, async (tabs) => {
       const groups = {};
       for (const tab of tabs) {
+        // Pinned tabs cannot join tab groups — including them fails the whole batch.
+        if (tab.pinned) continue;
         const hostname = safeHostname(tab.url);
         if (!hostname) continue;
         const key = getGroupKey(hostname);
@@ -344,7 +402,8 @@ const messageHandlers = {
 
       for (const key in groups) {
         const { tabs: groupTabs, hostname } = groups[key];
-        const tabIds = groupTabs.map(t => t.id);
+        const tabIds = groupTabs.map(t => t.id).filter(id => id != null);
+        if (tabIds.length === 0) continue;
 
         const subdomains = new Set(
           groupTabs.map(t => parseDomain(safeHostname(t.url)).sub).filter(Boolean)
@@ -355,13 +414,31 @@ const messageHandlers = {
         }
 
         try {
-          const groupId = await chrome.tabs.group({ tabIds });
+          let groupId;
+          try {
+            groupId = await chrome.tabs.group({ tabIds });
+          } catch {
+            // Partial failure (closed tab, race) — attach what we can one at a time.
+            groupId = null;
+            for (const id of tabIds) {
+              try {
+                if (groupId == null) {
+                  groupId = await chrome.tabs.group({ tabIds: [id] });
+                } else {
+                  await chrome.tabs.group({ tabIds: [id], groupId });
+                }
+              } catch { /* skip this tab */ }
+            }
+          }
+          if (groupId == null) continue;
+
+          const members = (await chrome.tabs.query({ groupId })).length;
           await chrome.tabGroups.update(groupId, {
-            title: `${label} · ${tabIds.length}`,
+            title: `${label} · ${members}`,
             collapsed: true,
             color: deterministicColor(key)
           });
-        } catch { /* tab may have been closed */ }
+        } catch { /* group may have been removed */ }
       }
       sendResponse({ success: true });
     });
@@ -407,46 +484,6 @@ const messageHandlers = {
     notify('test', 'Test Notification', 'This is a test notification.');
   },
 
-  takeScreenshot(message, sender, sendResponse) {
-    chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
-      if (chrome.runtime.lastError) {
-        sendResponse({ error: chrome.runtime.lastError.message });
-      } else {
-        sendResponse({ dataUrl });
-      }
-    });
-    return true;
-  },
-
-  captureVisible(message, sender, sendResponse) {
-    return messageHandlers.takeScreenshot(message, sender, sendResponse);
-  },
-
-  captureFullPage(message, sender, sendResponse) {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (!tabs[0]) return sendResponse({ error: 'No active tab' });
-      chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
-        if (chrome.runtime.lastError) {
-          sendResponse({ error: chrome.runtime.lastError.message });
-        } else {
-          sendResponse({ dataUrl, note: 'Full page capture requires scroll-and-stitch on the client side.' });
-        }
-      });
-    });
-    return true;
-  },
-
-  captureSelection(message, sender, sendResponse) {
-    chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
-      if (chrome.runtime.lastError) {
-        sendResponse({ error: chrome.runtime.lastError.message });
-      } else {
-        sendResponse({ dataUrl, selection: message.selection });
-      }
-    });
-    return true;
-  },
-
   searchAllTabs(message, sender, sendResponse) {
     searchAllTabs(message.query, message.options).then(results => {
       sendResponse({ results });
@@ -473,58 +510,6 @@ const messageHandlers = {
     });
   },
 
-  addBookmark(message) {
-    chrome.bookmarks.create({ title: message.title, url: message.url });
-  },
-
-  toggleJS() {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (!tabs[0]) return;
-      chrome.scripting.executeScript({
-        target: { tabId: tabs[0].id },
-        func: () => {
-          if (document.body.dataset.jsDisabled === 'true') {
-            document.body.dataset.jsDisabled = 'false';
-            location.reload();
-          } else {
-            document.body.dataset.jsDisabled = 'true';
-            document.querySelectorAll('script').forEach(s => s.remove());
-          }
-        }
-      });
-    });
-  },
-
-  injectScripts(message, sender, sendResponse) {
-    if (!sender.tab?.id || !Array.isArray(message.files)) return;
-    chrome.scripting.executeScript({
-      target: { tabId: sender.tab.id },
-      files: message.files
-    }, () => {
-      sendResponse(chrome.runtime.lastError ? { error: chrome.runtime.lastError.message } : { ok: true });
-    });
-    return true;
-  },
-
-  fetchUrl(message, sender, sendResponse) {
-    if (!message.url) return;
-    const start = Date.now();
-    const opts = message.options || {};
-    fetch(message.url, opts).then(async (res) => {
-      const body = await res.text();
-      sendResponse({
-        status: res.status,
-        statusText: res.statusText,
-        headers: Object.fromEntries(res.headers.entries()),
-        body,
-        time: Date.now() - start
-      });
-    }).catch(err => {
-      sendResponse({ error: err.message, time: Date.now() - start });
-    });
-    return true;
-  },
-
   setNoteReminder(message, sender, sendResponse) {
     if (!message.noteId || !message.delayMs) return;
     const alarmName = `noteReminder-${message.noteId}`;
@@ -534,37 +519,6 @@ const messageHandlers = {
       chrome.storage.local.set({ noteReminders });
     });
     sendResponse({ ok: true });
-    return true;
-  },
-
-  executeInPage(message, sender, sendResponse) {
-    if (!sender.tab?.id || !message.code) return;
-    chrome.scripting.executeScript({
-      target: { tabId: sender.tab.id },
-      world: 'MAIN',
-      func: (code) => {
-        const logs = [];
-        const oL = console.log, oE = console.error, oW = console.warn;
-        console.log = function() { logs.push({ t: 'log', v: Array.from(arguments).map(String).join(' ') }); oL.apply(console, arguments); };
-        console.error = function() { logs.push({ t: 'error', v: Array.from(arguments).map(String).join(' ') }); oE.apply(console, arguments); };
-        console.warn = function() { logs.push({ t: 'warn', v: Array.from(arguments).map(String).join(' ') }); oW.apply(console, arguments); };
-        try {
-          const val = (0, eval)(code);
-          return { value: val === undefined ? undefined : String(val), logs };
-        } catch (e) {
-          return { error: e.message, logs };
-        } finally {
-          console.log = oL; console.error = oE; console.warn = oW;
-        }
-      },
-      args: [message.code]
-    }, (results) => {
-      if (chrome.runtime.lastError) {
-        sendResponse({ error: chrome.runtime.lastError.message });
-      } else {
-        sendResponse(results?.[0]?.result || { error: 'No result' });
-      }
-    });
     return true;
   }
 };
@@ -581,18 +535,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status !== 'complete' || !isWebUrl(tab.url)) return;
 
-  let compareUrl;
-  try {
-    const parsed = new URL(tab.url);
-    parsed.hash = '';
-    compareUrl = parsed.toString();
-  } catch { return; }
+  const compareUrl = pageKeyFromUrl(tab.url);
+  if (!compareUrl) return;
 
-  chrome.storage.local.get({ stickyNotes: [] }, ({ stickyNotes }) => {
-    const relevantNotes = stickyNotes.filter(n => n.url === compareUrl);
-    if (relevantNotes.length === 0) return;
-    chrome.tabs.sendMessage(tabId, { action: 'restoreStickyNotes', notes: relevantNotes }, () => {
-      void chrome.runtime.lastError;
+  chrome.storage.sync.get(['stickySettings'], (syncRes) => {
+    if (syncRes.stickySettings?.enabled === false) return;
+
+    chrome.storage.local.get({ stickyNotes: [] }, ({ stickyNotes }) => {
+      const relevantNotes = stickyNotes.filter(n => pageKeyFromUrl(n.url) === compareUrl);
+      if (relevantNotes.length === 0) return;
+
+      // Normalize legacy URLs (with query/hash) to page keys
+      let dirty = false;
+      relevantNotes.forEach(n => {
+        const key = pageKeyFromUrl(n.url);
+        if (key && n.url !== key) { n.url = key; dirty = true; }
+      });
+      if (dirty) {
+        chrome.storage.local.set({ stickyNotes });
+      }
+
+      const pushRestore = (attempt) => {
+        chrome.tabs.sendMessage(tabId, { action: 'restoreStickyNotes', notes: relevantNotes }, () => {
+          if (chrome.runtime.lastError && attempt < 8) {
+            setTimeout(() => pushRestore(attempt + 1), 250 * (attempt + 1));
+          }
+        });
+      };
+      pushRestore(0);
     });
   });
 });
@@ -727,13 +697,17 @@ function searchInPage(query, options) {
 
     while (node = walker.nextNode()) {
       const text = node.textContent;
-      if (pattern.test(text)) {
-        text.split('\n').forEach((line, index) => {
-          if (pattern.test(line)) {
-            matches.push({ line: lineNumber + index, context: line.trim().substring(0, 200) });
-          }
-        });
+      pattern.lastIndex = 0;
+      if (!pattern.test(text)) {
+        lineNumber += text.split('\n').length - 1;
+        continue;
       }
+      text.split('\n').forEach((line, index) => {
+        pattern.lastIndex = 0;
+        if (pattern.test(line)) {
+          matches.push({ line: lineNumber + index, context: line.trim().substring(0, 200) });
+        }
+      });
       lineNumber += text.split('\n').length - 1;
     }
   } catch { /* invalid regex */ }

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Ganj's Utility Belt",
-  "version": "3.0",
-  "description": "Developer productivity suite: Pomodoro timer, tab management, sticky notes, CSS/JS editors, screenshot tools, color utilities, text tools, auto-refresh, cross-tab search, and more.",
+  "version": "4.1",
+  "description": "Browser workspace belt: tab grouping & sets, page notes, site actions, and focus timer.",
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js"
@@ -29,8 +29,7 @@
     "activeTab",
     "contextMenus",
     "notifications",
-    "clipboardWrite",
-    "bookmarks"
+    "clipboardWrite"
   ],
   "options_page": "options.html",
   "content_scripts": [{
@@ -41,31 +40,17 @@
       "libs/marked.min.js",
       "modules/modalShell.js",
       "modules/stickyNotes.js",
-      "modules/pomodoro.js",
-      "modules/pomodoroOverlay.js",
-      "modules/quickActions.js",
-      "modules/autoRefresh.js",
-      "modules/crossTabSearch.js",
-      "modules/cssEditor.js",
-      "modules/jsEditor.js",
-      "modules/screenshotTools.js",
-      "modules/colorTools.js",
-      "modules/textTools.js",
-      "modules/imageMagnifier.js",
-      "modules/redirector.js",
-      "modules/networkTools.js",
-      "modules/dataTools.js",
-      "modules/mediaScanner.js"
+      "modules/pomodoroOverlay.js"
     ],
     "run_at": "document_idle"
   }],
   "web_accessible_resources": [{
     "resources": [
-      "icon.png",
-      "libs/ace/*.js",
-      "libs/beautify.js",
-      "libs/beautify-css.js"
+      "icon.png"
     ],
     "matches": ["<all_urls>"]
-  }]
+  }],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:;"
+  }
 }

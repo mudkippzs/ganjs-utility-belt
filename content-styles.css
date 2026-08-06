@@ -1183,15 +1183,33 @@
 .gub-note-btn-sm:focus-visible { outline: 2px solid var(--ganj-primary); outline-offset: 2px; }
 .gub-note-time { font-size: 10px; color: var(--ganj-text-faint); }
 
-/* Page highlight mark */
+/* Page text highlight — forced visible so host mark{} rules can't hide it */
 .gub-highlight {
-  background-color: var(--ganj-warning-light);
+  cursor: pointer !important;
+  border-radius: 2px !important;
+  padding: 0 1px !important;
+  -webkit-box-decoration-break: clone !important;
+  box-decoration-break: clone !important;
+  text-decoration: none !important;
+}
+.gub-highlight:hover {
+  filter: brightness(0.92);
+}
+
+/* Element highlight — outline colour set inline from note */
+.gub-el-highlight {
   cursor: pointer;
   border-radius: 2px;
-  padding: 1px 0;
-  transition: background-color 0.2s;
+  transition: filter 0.15s ease, box-shadow 0.15s ease;
 }
-.gub-highlight:hover { background-color: var(--ganj-warning); }
+.gub-el-highlight:hover {
+  filter: brightness(0.97);
+}
+.gub-media-highlight {
+  border-radius: 4px !important;
+  position: relative;
+  z-index: 1;
+}
 
 /* ===== MEDIA SCANNER ===== */
 .gub-media-overlay {
