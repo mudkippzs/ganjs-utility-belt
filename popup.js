@@ -337,6 +337,47 @@ document.addEventListener('DOMContentLoaded', () => {
   bindPageTool('openCrossTabSearch', 'CrossTabSearch');
   bindPageTool('openMediaScanner', 'MediaScanner');
 
+  // --- Open selected links in background tabs ---
+  const MAX_SELECTED_LINKS = 50;
+  const openLinksBtn = document.getElementById('openSelectedLinks');
+
+  function flashTileLabel(btn, text, ms = 2400) {
+    const label = btn.querySelector('.hud-tile-label');
+    if (!label) return;
+    if (!label.dataset.original) label.dataset.original = label.textContent;
+    label.textContent = text;
+    clearTimeout(btn._flashTimer);
+    btn._flashTimer = setTimeout(() => { label.textContent = label.dataset.original; }, ms);
+  }
+
+  openLinksBtn.addEventListener('click', () => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs[0];
+      if (!tab?.id) return;
+      chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => window.getSelection().toString()
+      }, (results) => {
+        if (chrome.runtime.lastError || !results || !results[0]) {
+          flashTileLabel(openLinksBtn, 'NO ACCESS');
+          return;
+        }
+        const text = results[0].result || '';
+        const found = text.match(/https?:\/\/[^\s<>"'()\[\]{}]+/gi) || [];
+        const urls = [...new Set(found.map(u => u.replace(/[.,;:!?]+$/, '')))];
+        if (!urls.length) {
+          flashTileLabel(openLinksBtn, text.trim() ? 'NO LINKS' : 'SELECT FIRST');
+          return;
+        }
+        const salvo = urls.slice(0, MAX_SELECTED_LINKS);
+        salvo.forEach(url => chrome.tabs.create({ url, active: false }));
+        flashTileLabel(openLinksBtn, urls.length > MAX_SELECTED_LINKS
+          ? `${salvo.length} OF ${urls.length}`
+          : `${salvo.length} OPENED`);
+      });
+    });
+  });
+
   // --- Pomodoro start button state ---
   function updateStartButtonState() {
     pomodoroStart.disabled = pomodoroTask.value.trim() === '';
