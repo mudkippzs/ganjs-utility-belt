@@ -684,7 +684,7 @@
 
   function buildColorDots(active) {
     const colors = ['#fde68a', '#bfdbfe', '#bbf7d0', '#fecaca', '#e9d5ff', '#f1f5f9'];
-    return colors.map(c => `<span class="gub-color-dot${c === active ? ' active' : ''}" data-color="${c}" style="background:${c};" title="Note colour"></span>`).join('');
+    return colors.map(c => `<span class="gub-color-dot${c === active ? ' gub-active' : ''}" data-color="${c}" style="background:${c};" title="Note colour"></span>`).join('');
   }
 
   function bindNoteEvents(el, note) {
@@ -826,8 +826,8 @@
         note.color = dot.dataset.color;
         syncNoteFromDom(el, note);
         persistNote(note, true);
-        el.querySelectorAll('.gub-color-dot').forEach(d => d.classList.remove('active'));
-        dot.classList.add('active');
+        el.querySelectorAll('.gub-color-dot').forEach(d => d.classList.remove('gub-active'));
+        dot.classList.add('gub-active');
         el.querySelector('.gub-note-header').style.borderBottomColor = note.color;
         const pillBorder = document.querySelector(`.gub-note-pill[data-note-id="${atrId(note.id)}"]`);
         if (pillBorder) pillBorder.style.borderLeftColor = note.color;

@@ -100,7 +100,7 @@ function openPageTool(tabId, globalName) {
   if (!files || !tabId) return;
   chrome.scripting.insertCSS({
     target: { tabId },
-    files: ['content-styles.css']
+    files: ['tool-styles.css']
   }, () => {
     void chrome.runtime.lastError;
     chrome.scripting.executeScript({

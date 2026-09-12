@@ -1,0 +1,361 @@
+/* ===== GANJ'S UTILITY BELT - TOOL STYLES (on-demand) ===== */
+/* NOT in manifest content_scripts. Injected by background.js openPageTool()
+ * via chrome.scripting.insertCSS only when a page tool (MediaScanner,
+ * CrossTabSearch) is opened. Selectors here may be shorter, but they are
+ * still only present on the page while/after a tool runs — keep them
+ * scoped to tool containers where possible.
+ *
+ * Token block duplicated from content-styles.css so this file is
+ * self-contained even if the always-on sheet fails to load.
+ */
+
+:root {
+  --ganj-bg: #0c1222;
+  --ganj-bg-page: #111827;
+  --ganj-surface: #151b2d;
+  --ganj-surface-raised: #1e293b;
+  --ganj-bg-alt: #151b2d;
+  --ganj-bg-inset: #1e293b;
+  --ganj-border: #2d3748;
+  --ganj-border-strong: #334155;
+  --ganj-primary: #22d3ee;
+  --ganj-primary-hover: #06b6d4;
+  --ganj-primary-light: rgba(34, 211, 238, 0.2);
+  --ganj-success: #10b981;
+  --ganj-success-light: rgba(16, 185, 129, 0.2);
+  --ganj-warning: #f59e0b;
+  --ganj-warning-light: rgba(245, 158, 11, 0.2);
+  --ganj-error: #ef4444;
+  --ganj-error-light: rgba(239, 68, 68, 0.2);
+  --ganj-text: #f8fafc;
+  --ganj-text-secondary: #e2e8f0;
+  --ganj-text-muted: #cbd5e1;
+  --ganj-text-faint: #94a3b8;
+  --ganj-space-1: 4px;
+  --ganj-space-2: 6px;
+  --ganj-space-3: 8px;
+  --ganj-space-4: 12px;
+  --ganj-space-5: 16px;
+  --ganj-space-6: 24px;
+  --ganj-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --ganj-font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Monaco', 'Courier New', monospace;
+  --ganj-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 0, 0, 0.1);
+  --ganj-shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0, 0, 0, 0.1);
+  --ganj-radius: 10px;
+  --ganj-transition: all 0.15s ease;
+}
+
+/* ===== REDUCED MOTION (scoped to tool UI only) ===== */
+@media (prefers-reduced-motion: reduce) {
+  .gub-media-overlay,
+  .gub-media-panel,
+  .gub-media-card,
+  .gub-filter,
+  .cross-tab-search,
+  .search-modal,
+  .match-item,
+  .tab-header {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ===== SHARED MODAL CHROME (draggable, resizable) ===== */
+.ganj-modal-drag-handle,
+.ganj-modal-header {
+  cursor: move !important;
+  user-select: none !important;
+}
+.ganj-modal-body {
+  padding: var(--ganj-space-5) !important;
+  overflow: auto !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+}
+.ganj-modal-resize-handle {
+  position: absolute !important;
+  bottom: 0 !important;
+  right: 0 !important;
+  width: 16px !important;
+  height: 16px !important;
+  cursor: nwse-resize !important;
+  background: linear-gradient(135deg, transparent 50%, var(--ganj-border) 50%) !important;
+  border-radius: 0 0 var(--ganj-radius) 0 !important;
+}
+.ganj-modal-resize-handle:hover {
+  background: linear-gradient(135deg, transparent 50%, var(--ganj-primary) 50%) !important;
+}
+.ganj-modal-resize-handle:focus-visible {
+  outline: 2px solid var(--ganj-primary) !important;
+  outline-offset: 2px !important;
+}
+
+.ganj-modal-panel {
+  position: relative;
+}
+
+/* ===== TOOL BUTTONS (used inside tool panels only) ===== */
+.btn-primary {
+  background: var(--ganj-primary) !important;
+  color: white !important;
+  border: none !important;
+  padding: 8px 16px !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  font-family: var(--ganj-font-sans) !important;
+  transition: var(--ganj-transition) !important;
+}
+.btn-primary:hover {
+  background: var(--ganj-primary-hover) !important;
+}
+
+.btn-outline {
+  background: transparent !important;
+  color: var(--ganj-primary) !important;
+  border: 1px solid var(--ganj-primary) !important;
+  padding: 8px 16px !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  font-family: var(--ganj-font-sans) !important;
+  transition: var(--ganj-transition) !important;
+}
+.btn-outline:hover {
+  background: var(--ganj-primary) !important;
+  color: white !important;
+}
+
+.btn-small {
+  padding: 4px 10px !important;
+  font-size: 12px !important;
+  border-radius: 4px !important;
+}
+
+/* ===== TOOL CLOSE BUTTONS ===== */
+.search-close,
+.gub-media-close {
+  background: none !important;
+  border: none !important;
+  font-size: 20px !important;
+  cursor: pointer !important;
+  color: var(--ganj-text-muted) !important;
+  padding: 4px 8px !important;
+  border-radius: 6px !important;
+  transition: var(--ganj-transition) !important;
+  line-height: 1 !important;
+}
+.search-close:hover,
+.gub-media-close:hover {
+  background: var(--ganj-error-light) !important;
+  color: var(--ganj-error) !important;
+}
+.search-close:focus-visible,
+.gub-media-close:focus-visible {
+  outline: 2px solid var(--ganj-primary) !important;
+  outline-offset: 2px !important;
+}
+
+/* ===== TOOL PANEL HEADERS ===== */
+.search-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-bottom: var(--ganj-space-5) !important;
+  padding-bottom: var(--ganj-space-4) !important;
+  border-bottom: 1px solid var(--ganj-border) !important;
+}
+.search-header h3 {
+  margin: 0 !important; font-size: 16px !important; font-weight: 600 !important; color: var(--ganj-text) !important;
+}
+
+/* ===== CROSS TAB SEARCH ===== */
+.cross-tab-search {
+  position: fixed !important;
+  top: 0 !important; left: 0 !important;
+  width: 100vw !important; height: 100vh !important;
+  background: rgba(15, 23, 42, 0.6) !important;
+  backdrop-filter: blur(4px) !important;
+  z-index: 999999 !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  padding-top: 8vh !important;
+  font-family: var(--ganj-font-sans) !important;
+}
+.search-modal {
+  background: var(--ganj-bg) !important;
+  border-radius: 14px !important;
+  padding: 24px !important;
+  max-width: 680px !important;
+  width: 92% !important;
+  max-height: 80vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-shadow: var(--ganj-shadow-lg) !important;
+  color: var(--ganj-text) !important;
+}
+.search-input-container input {
+  width: 100% !important;
+  padding: 12px 16px !important;
+  border: 2px solid var(--ganj-border) !important;
+  border-radius: 10px !important;
+  font-size: 15px !important;
+  margin-bottom: 12px !important;
+  color: var(--ganj-text) !important;
+  background: var(--ganj-bg) !important;
+}
+.search-input-container input:focus-visible {
+  border-color: var(--ganj-primary) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px var(--ganj-primary-light) !important;
+}
+.search-options { display: flex !important; gap: 16px !important; margin-bottom: 12px !important; font-size: 13px !important; color: var(--ganj-text-secondary) !important; }
+.search-results { flex: 1 !important; overflow-y: auto !important; max-height: 400px !important; }
+.tab-result { border: 1px solid var(--ganj-border) !important; border-radius: 8px !important; margin-bottom: 10px !important; overflow: hidden !important; }
+.tab-header {
+  padding: 10px 14px !important; background: var(--ganj-bg-alt) !important;
+  display: flex !important; align-items: center !important; gap: 8px !important;
+  cursor: pointer !important; font-size: 13px !important; color: var(--ganj-text) !important;
+}
+.tab-header:hover { background: var(--ganj-bg-inset) !important; }
+.tab-matches { padding: 4px 14px 10px !important; }
+.match-item {
+  padding: 8px 10px !important; border-left: 3px solid var(--ganj-primary) !important;
+  margin: 4px 0 !important; cursor: pointer !important;
+  background: var(--ganj-bg-alt) !important; border-radius: 0 6px 6px 0 !important;
+  font-size: 13px !important; color: var(--ganj-text-secondary) !important;
+}
+.match-item:hover { background: var(--ganj-primary-light) !important; }
+.match-context mark { background: #fde68a !important; color: var(--ganj-text) !important; font-weight: 600 !important; padding: 1px 2px !important; border-radius: 2px !important; }
+
+/* ===== MEDIA SCANNER ===== */
+.gub-media-overlay {
+  position: fixed !important;
+  top: 0 !important; left: 0 !important;
+  width: 100vw !important; height: 100vh !important;
+  background: rgba(15, 23, 42, 0.85) !important;
+  backdrop-filter: blur(4px) !important;
+  z-index: 999999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-family: var(--ganj-font-sans) !important;
+}
+.gub-media-panel {
+  background: #fff !important;
+  border-radius: 14px !important;
+  width: 92vw !important; max-width: 1100px !important;
+  height: 85vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-shadow: var(--ganj-shadow-lg) !important;
+  overflow: hidden !important;
+}
+.gub-media-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 14px 18px !important;
+  border-bottom: 1px solid var(--ganj-border) !important;
+  flex-shrink: 0 !important;
+}
+.gub-media-header h3 { margin: 0 !important; font-size: 15px !important; color: var(--ganj-text) !important; }
+.gub-media-close {
+  background: none !important; border: none !important;
+  font-size: 20px !important; cursor: pointer !important;
+  color: var(--ganj-text-muted) !important; padding: 4px 8px !important;
+  border-radius: 6px !important;
+}
+.gub-media-close:hover { background: #fee2e2 !important; color: #dc2626 !important; }
+.gub-media-filters {
+  display: flex !important;
+  gap: 6px !important;
+  padding: 10px 18px !important;
+  border-bottom: 1px solid var(--ganj-border) !important;
+  align-items: center !important;
+  flex-shrink: 0 !important;
+}
+.gub-filter {
+  padding: 5px 12px !important;
+  border: 1px solid var(--ganj-border) !important;
+  border-radius: 16px !important;
+  background: var(--ganj-bg-alt) !important;
+  cursor: pointer !important;
+  font-size: 12px !important;
+  color: var(--ganj-text-secondary) !important;
+  transition: all 0.1s !important;
+}
+.gub-filter:hover { border-color: var(--ganj-primary) !important; }
+.gub-filter.active {
+  background: var(--ganj-primary) !important;
+  color: white !important;
+  border-color: var(--ganj-primary) !important;
+}
+.gub-media-grid {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  padding: 14px !important;
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important;
+  gap: 10px !important;
+  align-content: start !important;
+}
+.gub-media-card {
+  border: 2px solid var(--ganj-border) !important;
+  border-radius: 10px !important;
+  overflow: hidden !important;
+  cursor: pointer !important;
+  transition: all 0.15s !important;
+  background: var(--ganj-bg-alt) !important;
+  position: relative !important;
+}
+.gub-media-card:hover { border-color: var(--ganj-primary) !important; transform: translateY(-2px) !important; box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important; }
+.gub-media-card.selected { border-color: var(--ganj-primary) !important; background: #eff6ff !important; }
+.gub-media-thumb {
+  height: 120px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  background: #f1f5f9 !important;
+}
+.gub-media-thumb img { width: 100% !important; height: 100% !important; object-fit: cover !important; }
+.gub-media-icon { font-size: 32px !important; }
+.gub-media-info {
+  padding: 6px 8px !important;
+  display: flex !important;
+  gap: 6px !important;
+  align-items: center !important;
+  font-size: 11px !important;
+  color: var(--ganj-text-secondary) !important;
+}
+.gub-media-badge {
+  padding: 1px 6px !important;
+  border-radius: 4px !important;
+  color: white !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.3px !important;
+}
+.gub-media-size { font-weight: 600 !important; }
+.gub-media-dims { color: var(--ganj-text-faint) !important; }
+.gub-media-check {
+  position: absolute !important;
+  top: 6px !important; right: 6px !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5) !important;
+  color: white !important;
+}
+
+/* ===== HIDDEN STATE =====
+   MUST be last rule in file. Namespaced replacement for the old
+   .hidden[class] global hack; last-position wins equal-specificity
+   display ties (e.g. .cross-tab-search's display:flex). */
+.gub-hidden {
+  display: none !important;
+}

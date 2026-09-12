@@ -72,8 +72,8 @@
 
   function updateOverlayStyle() {
     if (!container) return;
-    container.classList.toggle('paused', paused);
-    container.classList.toggle('break', state?.type === 'break');
+    container.classList.toggle('gub-paused', paused);
+    container.classList.toggle('gub-break', state?.type === 'break');
     icon.style.display = paused ? 'block' : 'none';
   }
 

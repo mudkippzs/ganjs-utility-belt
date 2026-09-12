@@ -1,6 +1,8 @@
 # Ganj's Utility Belt — Design System
 
-Dark-first, intel/cyber visual language. Shared across popup/options (`styles.css`) and content-script UI (`content-styles.css`).
+Dark-first, intel/cyber visual language. Shared across popup/options (`styles.css`) and content-script UI (`content-styles.css` always-on, `tool-styles.css` on-demand).
+
+**Host-page collision contract:** page-injected CSS must stay namespaced. `content-styles.css` (manifest, all pages) allows only `.gub-*` / `.ganj-*` / `.pomodoro-*` selectors and `--ganj-*` custom properties — no bare generic classes, no universal `*` rules. Tool UI styles (`.btn-*`, `.search-*`, `.gub-media-*`, modal chrome) live in `tool-styles.css` and are injected on demand by `openPageTool()` in `background.js`.
 
 ---
 
@@ -36,7 +38,7 @@ Dark-first, intel/cyber visual language. Shared across popup/options (`styles.cs
 | `--shadow`, `--shadow-lg` | Box shadows | Depth |
 | `--transition` | `all 0.2s cubic-bezier(0.4, 0, 0.2, 1)` | Transitions |
 
-### Content scripts (`content-styles.css` — `:root`)
+### Content scripts (`content-styles.css` + `tool-styles.css` — `:root`)
 
 Same palette under the `--ganj-*` namespace so injected UI doesn’t clash with host page:
 
@@ -55,7 +57,7 @@ Use `--ganj-*` in all content-script UI so styling stays consistent and isolated
 
 ## Modal chrome (draggable, resizable)
 
-Content-script modals (CSS Editor, JS Runner, Network Tools, etc.) share one chrome system.
+Content-script modals (Media Scanner, Cross-Tab Search) share one chrome system.
 
 ### Script: `modules/modalShell.js`
 
@@ -65,7 +67,7 @@ Content-script modals (CSS Editor, JS Runner, Network Tools, etc.) share one chr
 
 **Persistence:** `chrome.storage.local` key `modalState`: `{ [modalId]: { left, top, width, height } }`. Saves on drag/resize end (debounced ~300ms). Load `modalShell.js` before any module that uses it (e.g. in `manifest.json` content_scripts).
 
-### Shared CSS (`content-styles.css`)
+### Shared CSS (`tool-styles.css` — injected on demand)
 
 - **`.ganj-modal-drag-handle`** / **`.ganj-modal-header`** — Cursor move, no text select; use as drag handle.
 - **`.ganj-modal-body`** — Padding (`--ganj-space-5`), overflow auto, flex grow.

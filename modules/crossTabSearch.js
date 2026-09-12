@@ -14,7 +14,7 @@ const CrossTabSearch = (() => {
     if (searchContainer) return;
 
     searchContainer = document.createElement('div');
-    searchContainer.className = 'cross-tab-search hidden';
+    searchContainer.className = 'cross-tab-search gub-hidden';
     searchContainer.innerHTML = `
       <div class="search-overlay">
         <div class="search-modal ganj-modal-panel" id="ganj-modal-crossTabSearch">
@@ -240,7 +240,7 @@ const CrossTabSearch = (() => {
       window.ModalShell.restorePosition(modalEl, 'crossTabSearch');
       focusTrapCleanup = window.ModalShell.setFocusTrap(modalEl, hide);
     }
-    searchContainer.classList.remove('hidden');
+    searchContainer.classList.remove('gub-hidden');
     isVisible = true;
     // Focus the search input
     setTimeout(() => {
@@ -255,7 +255,7 @@ const CrossTabSearch = (() => {
       focusTrapCleanup = null;
     }
     if (searchContainer) {
-      searchContainer.classList.add('hidden');
+      searchContainer.classList.add('gub-hidden');
     }
     isVisible = false;
   }
