@@ -669,6 +669,17 @@ const messageHandlers = {
     return true;
   },
 
+  // Wipe Grab's dedupe history (runtime, no reload): clears the in-memory
+  // set and the persisted storage key so the next Grab starts from scratch.
+  clearGrabHistory(message, sender, sendResponse) {
+    const cleared = grabbedSet ? grabbedSet.size : 0;
+    grabbedSet = new Set();
+    chrome.storage.local.remove(GRAB_SEEN_KEY, () => {
+      sendResponse({ cleared });
+    });
+    return true;
+  },
+
   setNoteReminder(message, sender, sendResponse) {
     if (!message.noteId || !message.delayMs) return;
     const alarmName = `noteReminder-${message.noteId}`;

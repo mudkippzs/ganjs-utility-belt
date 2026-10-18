@@ -519,6 +519,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Wipe Grab's dedupe history (two-step: click arms, second click within
+  // 2.5s confirms). After a wipe the next Grab re-downloads from scratch.
+  const wipeBtn = document.getElementById('clearGrabHistory');
+  let wipeArmedAt = 0;
+  wipeBtn.addEventListener('click', () => {
+    if (Date.now() - wipeArmedAt > 2500) {
+      wipeArmedAt = Date.now();
+      flashTileLabel(wipeBtn, 'SURE?');
+      return;
+    }
+    wipeArmedAt = 0;
+    chrome.runtime.sendMessage({ action: 'clearGrabHistory' }, (reply) => {
+      if (chrome.runtime.lastError || !reply) {
+        flashTileLabel(wipeBtn, 'ERROR');
+        return;
+      }
+      flashTileLabel(wipeBtn, reply.cleared ? `${reply.cleared} WIPED` : 'CLEAN');
+    });
+  });
+
   // --- Pomodoro start button state ---
   function updateStartButtonState() {
     pomodoroStart.disabled = pomodoroTask.value.trim() === '';

@@ -68,9 +68,13 @@
           <span class="hud-icon" data-icon="expand"></span>
           <span class="hud-tile-label">Expand</span>
         </button>
-        <button type="button" class="hud-tile" id="grabAllImages" title="Download every full-size media file behind the thumbnails on this page — never the thumbnails — downloads in batches of 100, click again for the next batch until ALL DONE">
+        <button type="button" class="hud-tile" id="grabAllImages" title="Download every full-size media file behind the thumbnails on this page — never the thumbnails — downloads in batches of 250, click again for the next batch until ALL DONE — already-grabbed files are remembered and skipped, so later clicks only fetch new posts">
           <span class="hud-icon" data-icon="grab"></span>
           <span class="hud-tile-label">Grab</span>
+        </button>
+        <button type="button" class="hud-tile" id="clearGrabHistory" title="Forget every URL Grab has already downloaded — after this, Grab re-downloads everything on a thread from scratch — click once to arm (SURE?), again within 2.5s to confirm">
+          <span class="hud-icon" data-icon="trash"></span>
+          <span class="hud-tile-label">Wipe</span>
         </button>
         <button type="button" class="hud-tile" id="viewAllNotes" title="Open the notes index — all page notes across sites">
           <span class="hud-icon" data-icon="notes"></span>
