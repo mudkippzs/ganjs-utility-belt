@@ -395,10 +395,10 @@ document.addEventListener('DOMContentLoaded', () => {
         args: arg !== undefined ? [arg] : []
       }, (results) => {
         if (chrome.runtime.lastError || !results || !results[0]) {
-          onResult(null);
+          onResult(null, tab.id);
           return;
         }
-        onResult(results[0].result);
+        onResult(results[0].result, tab.id);
       });
     });
   }
@@ -475,15 +475,18 @@ document.addEventListener('DOMContentLoaded', () => {
         items: [...items].map(([url, v]) => ({ url, name: v.name, serverName: v.serverName })),
         key: location.origin + location.pathname
       };
-    }, (res) => {
+    }, (res, tabId) => {
       if (res === null) { flashTileLabel(grabBtn, 'NO ACCESS'); return; }
       if (!res.items.length) { flashTileLabel(grabBtn, 'NO MEDIA'); return; }
-      // Route through chrome.downloads (background) — in-page a[download]
-      // clicks are ignored cross-origin and would navigate the tab instead.
+      // Two download paths, chosen in background per item:
+      // - attachment pages (serverName): in-page synthetic a[download] clicks
+      //   (Fancybox-button parity — Referer + session, server names the file)
+      // - direct media URLs: chrome.downloads (cross-origin clicks would
+      //   navigate the tab instead of downloading)
       // Background tracks already-queued URLs per page, so repeated clicks
       // walk the full list in batches until done.
       chrome.runtime.sendMessage(
-        { action: 'downloadMedia', items: res.items, pageKey: res.key },
+        { action: 'downloadMedia', items: res.items, pageKey: res.key, tabId },
         (reply) => {
           if (chrome.runtime.lastError || !reply) {
             flashTileLabel(grabBtn, 'ERROR');

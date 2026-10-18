@@ -560,18 +560,42 @@ const messageHandlers = {
     }
 
     const batch = fresh.slice(0, GRAB_BATCH_SIZE);
-    batch.forEach((item, i) => {
-      seen.add(item.url);
+    batch.forEach(item => seen.add(item.url));
+
+    // Attachment pages (serverName): replicate the Fancybox download button —
+    // a same-origin in-page <a download> click, staggered 1.5s. Carries the
+    // page Referer + session; the server's Content-Disposition names the file.
+    const clickUrls = batch.filter(it => it.serverName).map(it => it.url);
+    if (clickUrls.length && message.tabId) {
+      chrome.scripting.executeScript({
+        target: { tabId: message.tabId },
+        func: (urls) => {
+          urls.forEach((u, i) => {
+            setTimeout(() => {
+              const a = document.createElement('a');
+              a.href = u;
+              a.download = '';
+              a.rel = 'noopener';
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+            }, i * 1500);
+          });
+        },
+        args: [clickUrls]
+      }, () => { void chrome.runtime.lastError; });
+    }
+
+    // Direct media URLs: chrome.downloads — cross-origin a[download] clicks
+    // are ignored per spec and would navigate the tab instead of saving.
+    batch.filter(it => !it.serverName).forEach((item, i) => {
       setTimeout(() => {
-        const opts = {
+        chrome.downloads.download({
           url: item.url,
+          filename: grabFilename(item, i),
           conflictAction: 'uniquify',
           saveAs: false
-        };
-        // serverName items (attachment pages): let the server's
-        // Content-Disposition provide the real filename + extension
-        if (!item.serverName) opts.filename = grabFilename(item, i);
-        chrome.downloads.download(opts, (downloadId) => {
+        }, (downloadId) => {
           if (chrome.runtime.lastError || downloadId === undefined) {
             seen.delete(item.url); // failed — allow retry on next salvo
           }
