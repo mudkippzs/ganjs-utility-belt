@@ -442,58 +442,74 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  grabBtn.addEventListener('click', () => {
-    runOnActiveTab(() => {
-      const mediaExt = /\.(jpe?g|png|gif|webp|avif|webm|mp4)(\?.*)?$/i;
-      // XenForo & friends: lightbox anchors wrap attachment images
-      const lightboxSel = '.js-lbImage, [data-fancybox], [rel~="lightbox"]';
-      // Source post ID for filename prefixes (keeps numbered uploads like
-      // 1.jpg from different posts colliding and preserves thread order)
-      const postIdOf = (a) => {
-        const lb = a.closest('[data-lb-id]');
-        if (lb) {
-          const m = (lb.getAttribute('data-lb-id') || '').match(/(\d+)\D*$/);
-          if (m) return m[1];
-        }
-        const fb = (a.getAttribute('data-fancybox') || '').match(/(\d+)\D*$/);
-        if (fb) return fb[1];
-        const pn = a.closest('[data-post-number]');
-        if (pn) return pn.getAttribute('data-post-number');
-        const post = a.closest('.post[id], .postContainer[id], article[id]');
-        if (post) {
-          const m = post.id.match(/(\d+)\D*$/);
-          if (m) return m[1];
-        }
-        return '';
-      };
-      const items = new Map(); // url -> { name, serverName, postId }
-      document.querySelectorAll('a[href]').forEach(a => {
-        const img = a.querySelector('img');
-        if (!img) return;
-        if (mediaExt.test(a.href)) {
-          if (!items.has(a.href)) items.set(a.href, { name: '', serverName: false, postId: postIdOf(a) });
+  // Media collector, injected into tabs via chrome.scripting.executeScript.
+  // Must stay fully self-contained (no closure references) so it serializes.
+  function collectGrabItems() {
+    const mediaExt = /\.(jpe?g|png|gif|webp|avif|webm|mp4)(\?.*)?$/i;
+    // XenForo & friends: lightbox anchors wrap attachment images
+    const lightboxSel = '.js-lbImage, [data-fancybox], [rel~="lightbox"]';
+    // Source post ID for filename prefixes (keeps numbered uploads like
+    // 1.jpg from different posts colliding and preserves thread order)
+    const postIdOf = (a) => {
+      const lb = a.closest('[data-lb-id]');
+      if (lb) {
+        const m = (lb.getAttribute('data-lb-id') || '').match(/(\d+)\D*$/);
+        if (m) return m[1];
+      }
+      const fb = (a.getAttribute('data-fancybox') || '').match(/(\d+)\D*$/);
+      if (fb) return fb[1];
+      const pn = a.closest('[data-post-number]');
+      if (pn) return pn.getAttribute('data-post-number');
+      const post = a.closest('.post[id], .postContainer[id], article[id]');
+      if (post) {
+        const m = post.id.match(/(\d+)\D*$/);
+        if (m) return m[1];
+      }
+      return '';
+    };
+    const items = new Map(); // url -> { name, serverName, postId }
+    document.querySelectorAll('a[href]').forEach(a => {
+      const img = a.querySelector('img');
+      if (!img) return;
+      if (mediaExt.test(a.href)) {
+        if (!items.has(a.href)) items.set(a.href, { name: '', serverName: false, postId: postIdOf(a) });
+        return;
+      }
+      if (a.matches(lightboxSel)) {
+        // XenForo: download the attachment PAGE, not the img's data/ URL.
+        // data/attachments/ is typically server-protected (nginx internal /
+        // referrer checks) and returns HTML to a download manager, while
+        // the attachment page passes the PHP permission check and serves
+        // the real file.
+        if (/attachments?\//.test(a.href)) {
+          if (!items.has(a.href)) items.set(a.href, { name: '', serverName: true, postId: postIdOf(a) });
           return;
         }
-        if (a.matches(lightboxSel)) {
-          // XenForo: download the attachment PAGE, not the img's data/ URL.
-          // data/attachments/ is typically server-protected (nginx internal /
-          // referrer checks) and returns HTML to a download manager, while
-          // the attachment page passes the PHP permission check and serves
-          // the real file.
-          if (/attachments?\//.test(a.href)) {
-            if (!items.has(a.href)) items.set(a.href, { name: '', serverName: true, postId: postIdOf(a) });
-            return;
-          }
-          const full = [img.dataset.src, img.currentSrc, img.src].find(u => u && mediaExt.test(u));
-          if (full && !items.has(full)) {
-            items.set(full, { name: (img.alt || img.title || '').trim(), serverName: false, postId: postIdOf(a) });
-          }
+        const full = [img.dataset.src, img.currentSrc, img.src].find(u => u && mediaExt.test(u));
+        if (full && !items.has(full)) {
+          items.set(full, { name: (img.alt || img.title || '').trim(), serverName: false, postId: postIdOf(a) });
         }
-      });
-      return {
-        items: [...items].map(([url, v]) => ({ url, name: v.name, serverName: v.serverName, postId: v.postId }))
-      };
-    }, (res, tabId) => {
+      }
+    });
+    return {
+      items: [...items].map(([url, v]) => ({ url, name: v.name, serverName: v.serverName, postId: v.postId }))
+    };
+  }
+
+  // Shared salvo feedback for both grab buttons.
+  function reportGrab(btn, total, reply) {
+    if (chrome.runtime.lastError || !reply) {
+      flashTileLabel(btn, 'ERROR');
+      return;
+    }
+    if (reply.done) { flashTileLabel(btn, 'ALL DONE'); return; }
+    flashTileLabel(btn, total > reply.batch
+      ? `${reply.downloaded} OF ${reply.total}`
+      : `${reply.batch} GRABBED`);
+  }
+
+  grabBtn.addEventListener('click', () => {
+    runOnActiveTab(collectGrabItems, (res, tabId) => {
       if (res === null) { flashTileLabel(grabBtn, 'NO ACCESS'); return; }
       if (!res.items.length) { flashTileLabel(grabBtn, 'NO MEDIA'); return; }
       // Two download paths, chosen in background per item:
@@ -507,17 +523,46 @@ document.addEventListener('DOMContentLoaded', () => {
       // list in batches and later clicks grab only newly added media.
       chrome.runtime.sendMessage(
         { action: 'downloadMedia', items: res.items, tabId },
-        (reply) => {
-          if (chrome.runtime.lastError || !reply) {
-            flashTileLabel(grabBtn, 'ERROR');
-            return;
-          }
-          if (reply.done) { flashTileLabel(grabBtn, 'ALL DONE'); return; }
-          flashTileLabel(grabBtn, res.items.length > reply.batch
-            ? `${reply.downloaded} OF ${reply.total}`
-            : `${reply.batch} GRABBED`);
-        }
+        (reply) => reportGrab(grabBtn, res.items.length, reply)
       );
+    });
+  });
+
+  // Domain-wide grab: collect from EVERY open tab on the active tab's
+  // hostname, merge by URL (first wins — the same thread open twice can't
+  // double-queue), then feed the normal batch pipeline. Attachment-page
+  // clicks run in the active tab (same domain, cookies are per-domain).
+  const grabDomainBtn = document.getElementById('grabDomainMedia');
+  grabDomainBtn.addEventListener('click', () => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (activeTabs) => {
+      const active = activeTabs[0];
+      if (!active?.id || !/^https?:/.test(active.url || '')) {
+        flashTileLabel(grabDomainBtn, 'NO ACCESS');
+        return;
+      }
+      const host = new URL(active.url).hostname;
+      chrome.tabs.query({}, (tabs) => {
+        const sameHost = tabs.filter(t => {
+          if (!t.id || !/^https?:/.test(t.url || '')) return false;
+          try { return new URL(t.url).hostname === host; } catch { return false; }
+        });
+        Promise.all(sameHost.map(t =>
+          chrome.scripting.executeScript({ target: { tabId: t.id }, func: collectGrabItems })
+            .then(r => (r && r[0] && r[0].result) || null)
+            .catch(() => null) // tab rejects scripting — skip, don't fail the salvo
+        )).then(results => {
+          const items = new Map();
+          results.forEach(res => (res?.items || []).forEach(it => {
+            if (!items.has(it.url)) items.set(it.url, it);
+          }));
+          if (!items.size) { flashTileLabel(grabDomainBtn, 'NO MEDIA'); return; }
+          const all = [...items.values()];
+          chrome.runtime.sendMessage(
+            { action: 'downloadMedia', items: all, tabId: active.id },
+            (reply) => reportGrab(grabDomainBtn, all.length, reply)
+          );
+        });
+      });
     });
   });
 
