@@ -563,12 +563,15 @@ const messageHandlers = {
     batch.forEach((item, i) => {
       seen.add(item.url);
       setTimeout(() => {
-        chrome.downloads.download({
+        const opts = {
           url: item.url,
-          filename: grabFilename(item, i),
           conflictAction: 'uniquify',
           saveAs: false
-        }, (downloadId) => {
+        };
+        // serverName items (attachment pages): let the server's
+        // Content-Disposition provide the real filename + extension
+        if (!item.serverName) opts.filename = grabFilename(item, i);
+        chrome.downloads.download(opts, (downloadId) => {
           if (chrome.runtime.lastError || downloadId === undefined) {
             seen.delete(item.url); // failed — allow retry on next salvo
           }

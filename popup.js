@@ -445,25 +445,34 @@ document.addEventListener('DOMContentLoaded', () => {
   grabBtn.addEventListener('click', () => {
     runOnActiveTab(() => {
       const mediaExt = /\.(jpe?g|png|gif|webp|avif|webm|mp4)(\?.*)?$/i;
-      // XenForo & friends: attachment href is a page, full image is in the img
+      // XenForo & friends: lightbox anchors wrap attachment images
       const lightboxSel = '.js-lbImage, [data-fancybox], [rel~="lightbox"]';
-      const items = new Map(); // url -> suggested name
+      const items = new Map(); // url -> { name, serverName }
       document.querySelectorAll('a[href]').forEach(a => {
         const img = a.querySelector('img');
         if (!img) return;
         if (mediaExt.test(a.href)) {
-          if (!items.has(a.href)) items.set(a.href, '');
+          if (!items.has(a.href)) items.set(a.href, { name: '', serverName: false });
           return;
         }
         if (a.matches(lightboxSel)) {
+          // XenForo: download the attachment PAGE, not the img's data/ URL.
+          // data/attachments/ is typically server-protected (nginx internal /
+          // referrer checks) and returns HTML to a download manager, while
+          // the attachment page passes the PHP permission check and serves
+          // the real file with a Content-Disposition filename.
+          if (/attachments?\//.test(a.href)) {
+            if (!items.has(a.href)) items.set(a.href, { name: '', serverName: true });
+            return;
+          }
           const full = [img.dataset.src, img.currentSrc, img.src].find(u => u && mediaExt.test(u));
           if (full && !items.has(full)) {
-            items.set(full, (img.alt || img.title || '').trim());
+            items.set(full, { name: (img.alt || img.title || '').trim(), serverName: false });
           }
         }
       });
       return {
-        items: [...items].map(([url, name]) => ({ url, name })),
+        items: [...items].map(([url, v]) => ({ url, name: v.name, serverName: v.serverName })),
         key: location.origin + location.pathname
       };
     }, (res) => {
