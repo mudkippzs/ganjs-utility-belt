@@ -531,8 +531,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Domain-wide grab: collect from EVERY open tab on the active tab's
   // hostname, merge by URL (first wins — the same thread open twice can't
-  // double-queue), then feed the normal batch pipeline. Attachment-page
-  // clicks run in the active tab (same domain, cookies are per-domain).
+  // double-queue), then feed the download queue with parallel=true so it
+  // dispatches in waves of 20. Attachment-page clicks resolve to any live
+  // tab on the domain at dispatch time.
   const grabDomainBtn = document.getElementById('grabDomainMedia');
   grabDomainBtn.addEventListener('click', () => {
     chrome.tabs.query({ active: true, currentWindow: true }, (activeTabs) => {
@@ -559,7 +560,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (!items.size) { flashTileLabel(grabDomainBtn, 'NO MEDIA'); return; }
           const all = [...items.values()];
           chrome.runtime.sendMessage(
-            { action: 'downloadMedia', items: all, tabId: active.id },
+            { action: 'downloadMedia', items: all, tabId: active.id, parallel: true },
             (reply) => reportGrab(grabDomainBtn, all.length, reply)
           );
         });

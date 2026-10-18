@@ -432,9 +432,10 @@ chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
 // it). Failures are noted and requeued at the tail (GRAB_MAX_ATTEMPTS),
 // then stay un-seen so the next Grab click can retry them fresh.
 const GRAB_GAP_MS = 2000;
+const GRAB_WAVE_SIZE = 20; // parallel entries dispatch in waves of this size
 const GRAB_MAX_ATTEMPTS = 3;
 const GRAB_QUEUE_KEY = 'grabQueue';
-let grabQueue = null; // lazy-loaded [{ item, tabId }]
+let grabQueue = null; // lazy-loaded [{ item, tabId, parallel }]
 let grabPumping = false;
 
 async function loadGrabQueue() {
@@ -458,20 +459,21 @@ async function enqueueGrab(entries) {
   pumpGrabQueue();
 }
 
-// Failed downloads requeue at the tail. The URL stays SEEN while queued so
+// Failed downloads requeue at the tail (entry keeps its parallel flag, so
+// GrabAll retries ride the next wave). The URL stays SEEN while queued so
 // a Grab click can't double-enqueue it; only when attempts run out is it
 // un-seen, so the next Grab click treats it as fresh.
-function noteGrabFailure(item, tabId) {
-  const attempts = (item.attempts || 0) + 1;
+function noteGrabFailure(entry) {
+  const attempts = (entry.item.attempts || 0) + 1;
   if (attempts >= GRAB_MAX_ATTEMPTS || !grabQueue) {
     if (grabbedSet) {
-      grabbedSet.delete(item.url);
+      grabbedSet.delete(entry.item.url);
       persistGrabbedSet();
     }
     return;
   }
-  item.attempts = attempts;
-  grabQueue.push({ item, tabId });
+  entry.item.attempts = attempts;
+  grabQueue.push(entry);
   saveGrabQueue();
   pumpGrabQueue();
 }
@@ -494,18 +496,18 @@ async function resolveClickTab(item, tabId) {
   return cand ? cand.id : null;
 }
 
-function queueDirectDownload(item, tabId) {
+function queueDirectDownload(entry) {
   chrome.downloads.download({
-    url: item.url,
-    filename: withPostPrefix(item, grabFilename(item, 0)),
+    url: entry.item.url,
+    filename: withPostPrefix(entry.item, grabFilename(entry.item, 0)),
     conflictAction: 'uniquify',
     saveAs: false
   }, (downloadId) => {
     if (chrome.runtime.lastError || downloadId === undefined) {
-      noteGrabFailure(item, tabId);
+      noteGrabFailure(entry);
       return;
     }
-    grabDownloadIds.set(downloadId, { item, tabId });
+    grabDownloadIds.set(downloadId, entry);
   });
 }
 
@@ -521,21 +523,21 @@ function clickAttachmentPage(url) {
   a.remove();
 }
 
-async function dispatchGrabItem({ item, tabId }) {
+async function dispatchGrabItem(entry) {
+  const { item, tabId } = entry;
   if (!item.serverName) {
-    queueDirectDownload(item, tabId);
+    queueDirectDownload(entry);
     return;
   }
   const target = await resolveClickTab(item, tabId);
   if (target === null) {
-    noteGrabFailure(item, tabId);
+    noteGrabFailure(entry);
     return;
   }
   if (pendingGrab.size > 5000) pendingGrab.delete(pendingGrab.keys().next().value);
   pendingGrab.set(item.url, {
     filename: attachmentFilename(item),
-    item,
-    tabId: target
+    entry: { ...entry, tabId: target }
   });
   chrome.scripting.executeScript({
     target: { tabId: target },
@@ -544,19 +546,32 @@ async function dispatchGrabItem({ item, tabId }) {
   }, () => {
     if (chrome.runtime.lastError) {
       pendingGrab.delete(item.url);
-      noteGrabFailure(item, target);
+      noteGrabFailure({ ...entry, tabId: target });
     }
   });
 }
 
+// Serial entries dispatch one per GRAB_GAP_MS. Parallel entries (GrabAll)
+// dispatch a WAVE of up to GRAB_WAVE_SIZE concurrently, then pause
+// GRAB_GAP_MS before the next wave/item. A serial head stops the wave, so
+// mixed queues keep strict order.
 async function pumpGrabQueue() {
   if (grabPumping) return;
   grabPumping = true;
   try {
     while (grabQueue.length) {
-      const head = grabQueue.shift();
-      saveGrabQueue();
-      await dispatchGrabItem(head);
+      if (grabQueue[0].parallel) {
+        const wave = [];
+        while (grabQueue.length && grabQueue[0].parallel && wave.length < GRAB_WAVE_SIZE) {
+          wave.push(grabQueue.shift());
+        }
+        saveGrabQueue();
+        await Promise.all(wave.map(dispatchGrabItem));
+      } else {
+        const head = grabQueue.shift();
+        saveGrabQueue();
+        await dispatchGrabItem(head);
+      }
       if (grabQueue.length) {
         await new Promise(r => setTimeout(r, GRAB_GAP_MS));
       }
@@ -567,16 +582,16 @@ async function pumpGrabQueue() {
 }
 
 // Track in-flight downloads so mid-transfer failures also requeue.
-const grabDownloadIds = new Map(); // downloadId -> { item, tabId }
+const grabDownloadIds = new Map(); // downloadId -> entry { item, tabId, parallel }
 
 chrome.downloads.onChanged.addListener((delta) => {
-  const rec = grabDownloadIds.get(delta.id);
-  if (!rec || !delta.state) return;
+  const entry = grabDownloadIds.get(delta.id);
+  if (!entry || !delta.state) return;
   if (delta.state.current === 'complete') {
     grabDownloadIds.delete(delta.id);
   } else if (delta.state.current === 'interrupted') {
     grabDownloadIds.delete(delta.id);
-    noteGrabFailure(rec.item, rec.tabId);
+    noteGrabFailure(entry);
   }
 });
 
@@ -591,10 +606,10 @@ chrome.downloads.onCreated.addListener((item) => {
         chrome.downloads.erase({ id: item.id }, () => { void chrome.runtime.lastError; });
       });
       pendingGrab.delete(item.url);
-      noteGrabFailure(pending.item, pending.tabId);
+      noteGrabFailure(pending.entry);
       return;
     }
-    grabDownloadIds.set(item.id, { item: pending.item, tabId: pending.tabId });
+    grabDownloadIds.set(item.id, pending.entry);
     return;
   }
   // Unknown-source download of a grabbed URL: still never save HTML.
@@ -804,7 +819,7 @@ const messageHandlers = {
         return;
       }
 
-      enqueueGrab(fresh.map(item => ({ item, tabId: message.tabId })));
+      enqueueGrab(fresh.map(item => ({ item, tabId: message.tabId, parallel: !!message.parallel })));
       sendResponse({ batch: fresh.length, total: items.length, done: false });
     });
     return true;
