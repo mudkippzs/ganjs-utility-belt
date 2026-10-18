@@ -379,12 +379,6 @@ function persistGrabbedSet() {
   chrome.storage.local.set({ [GRAB_SEEN_KEY]: arr });
 }
 
-const MIME_EXT = {
-  'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif',
-  'image/webp': '.webp', 'image/avif': '.avif',
-  'video/webm': '.webm', 'video/mp4': '.mp4'
-};
-
 /**
  * Parse a XenForo attachment slug out of an attachment page URL.
  * Handles query-style (index.php?attachments/bi-1-png.2352220/) and
@@ -408,40 +402,42 @@ function withPostPrefix(item, filename) {
 }
 
 /**
- * Attachment-page download: fetch with the operator's session cookies,
- * verify the payload is media (permission failures return HTML — never
- * saved), then download the blob with a post-ID-prefixed filename.
- * Content-Disposition cannot override this path.
+ * Attachment-page download via chrome.downloads on the page URL. The API's
+ * filename parameter overrides the server's Content-Disposition (unlike
+ * in-page a[download] clicks), so the post-ID-prefixed slug name sticks.
+ * If the slug carries no extension token we omit filename entirely and let
+ * Content-Disposition name it — correctness beats the prefix.
+ * NOTE: no fetch+blob here — service workers have no URL.createObjectURL.
  */
-async function downloadAttachmentPage(item) {
+function downloadAttachmentPage(item) {
   const { base, ext } = parseAttachmentSlug(item.url);
   const safeBase = (base || 'attachment').replace(/[\\/:*?"<>|]/g, '_').trim() || 'attachment';
-  try {
-    const resp = await fetch(item.url, { credentials: 'include' });
-    const type = (resp.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
-    if (!resp.ok || type === 'text/html' || type === 'text/xml') {
-      throw new Error(`not media: ${resp.status} ${type}`);
+  const opts = {
+    url: item.url,
+    conflictAction: 'uniquify',
+    saveAs: false
+  };
+  if (ext) opts.filename = withPostPrefix(item, safeBase + ext);
+  chrome.downloads.download(opts, (downloadId) => {
+    if (chrome.runtime.lastError || downloadId === undefined) {
+      grabbedSet.delete(item.url);
+      persistGrabbedSet(); // allow retry on next salvo
     }
-    const blob = await resp.blob();
-    const objUrl = URL.createObjectURL(blob);
-    const filename = withPostPrefix(item, safeBase + (ext || MIME_EXT[type] || ''));
-    chrome.downloads.download({
-      url: objUrl,
-      filename,
-      conflictAction: 'uniquify',
-      saveAs: false
-    }, (downloadId) => {
-      setTimeout(() => URL.revokeObjectURL(objUrl), 30000);
-      if (chrome.runtime.lastError || downloadId === undefined) {
-        grabbedSet.delete(item.url);
-        persistGrabbedSet(); // allow retry on next salvo
-      }
-    });
-  } catch {
-    grabbedSet.delete(item.url);
-    persistGrabbedSet(); // allow retry on next salvo
-  }
+  });
 }
+
+// HTML guard: attachment pages that fail the server permission check return
+// a text/html page, which must never be saved. Cancel + erase it and un-see
+// the URL so the next salvo can retry (e.g. after re-login).
+chrome.downloads.onCreated.addListener((item) => {
+  if (item.mime === 'text/html' && grabbedSet && grabbedSet.has(item.url)) {
+    chrome.downloads.cancel(item.id, () => {
+      chrome.downloads.erase({ id: item.id }, () => { void chrome.runtime.lastError; });
+    });
+    grabbedSet.delete(item.url);
+    persistGrabbedSet();
+  }
+});
 
 /**
  * Filename for a grabbed item: prefer the page-suggested name (e.g. XenForo
