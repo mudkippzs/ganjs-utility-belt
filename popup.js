@@ -406,18 +406,34 @@ document.addEventListener('DOMContentLoaded', () => {
   expandBtn.addEventListener('click', () => {
     runOnActiveTab(() => {
       const imgExt = /\.(jpe?g|png|gif|webp|avif)(\?.*)?$/i;
+      // XenForo & friends: lightbox anchors wrap the FULL image, pre-shrunk
+      const lightboxSel = '.js-lbImage, [data-fancybox], [rel~="lightbox"]';
       let n = 0;
       document.querySelectorAll('a[href]').forEach(a => {
-        if (!imgExt.test(a.href)) return;
         const img = a.querySelector('img');
-        if (!img || img.src === a.href) return;
-        img.removeAttribute('srcset');
-        img.removeAttribute('width');
-        img.removeAttribute('height');
-        img.style.maxWidth = '100%';
-        img.style.height = 'auto';
-        img.src = a.href;
-        n++;
+        if (!img) return;
+        const upsize = () => {
+          img.removeAttribute('srcset');
+          img.removeAttribute('width');
+          img.removeAttribute('height');
+          img.style.maxWidth = '100%';
+          img.style.height = 'auto';
+          n++;
+        };
+        if (imgExt.test(a.href)) {
+          if (img.src === a.href) return;
+          img.src = a.href;
+          upsize();
+          return;
+        }
+        if (a.matches(lightboxSel)) {
+          const full = [img.dataset.src, img.currentSrc, img.src].find(u => u && imgExt.test(u));
+          if (!full) return;
+          const shrunk = img.hasAttribute('width') || img.hasAttribute('height') || img.getAttribute('srcset');
+          if (!shrunk && img.src === full) return;
+          if (img.src !== full) img.src = full;
+          upsize();
+        }
       });
       return n;
     }, (n) => {
@@ -429,27 +445,43 @@ document.addEventListener('DOMContentLoaded', () => {
   grabBtn.addEventListener('click', () => {
     runOnActiveTab(() => {
       const mediaExt = /\.(jpe?g|png|gif|webp|avif|webm|mp4)(\?.*)?$/i;
-      const urls = new Set();
+      // XenForo & friends: attachment href is a page, full image is in the img
+      const lightboxSel = '.js-lbImage, [data-fancybox], [rel~="lightbox"]';
+      const items = new Map(); // url -> suggested name
       document.querySelectorAll('a[href]').forEach(a => {
-        if (mediaExt.test(a.href) && a.querySelector('img')) urls.add(a.href);
+        const img = a.querySelector('img');
+        if (!img) return;
+        if (mediaExt.test(a.href)) {
+          if (!items.has(a.href)) items.set(a.href, '');
+          return;
+        }
+        if (a.matches(lightboxSel)) {
+          const full = [img.dataset.src, img.currentSrc, img.src].find(u => u && mediaExt.test(u));
+          if (full && !items.has(full)) {
+            items.set(full, (img.alt || img.title || '').trim());
+          }
+        }
       });
-      return { urls: [...urls], key: location.origin + location.pathname };
+      return {
+        items: [...items].map(([url, name]) => ({ url, name })),
+        key: location.origin + location.pathname
+      };
     }, (res) => {
       if (res === null) { flashTileLabel(grabBtn, 'NO ACCESS'); return; }
-      if (!res.urls.length) { flashTileLabel(grabBtn, 'NO MEDIA'); return; }
+      if (!res.items.length) { flashTileLabel(grabBtn, 'NO MEDIA'); return; }
       // Route through chrome.downloads (background) — in-page a[download]
       // clicks are ignored cross-origin and would navigate the tab instead.
       // Background tracks already-queued URLs per page, so repeated clicks
       // walk the full list in batches until done.
       chrome.runtime.sendMessage(
-        { action: 'downloadMedia', urls: res.urls, pageKey: res.key },
+        { action: 'downloadMedia', items: res.items, pageKey: res.key },
         (reply) => {
           if (chrome.runtime.lastError || !reply) {
             flashTileLabel(grabBtn, 'ERROR');
             return;
           }
           if (reply.done) { flashTileLabel(grabBtn, 'ALL DONE'); return; }
-          flashTileLabel(grabBtn, res.urls.length > reply.batch
+          flashTileLabel(grabBtn, res.items.length > reply.batch
             ? `${reply.downloaded} OF ${reply.total}`
             : `${reply.batch} GRABBED`);
         }

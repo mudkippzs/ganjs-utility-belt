@@ -361,6 +361,31 @@ let toastLeaderTabId = null;
 const grabState = new Map();
 const GRAB_BATCH_SIZE = 100;
 
+/**
+ * Filename for a grabbed item: prefer the page-suggested name (e.g. XenForo
+ * alt text "bi 1.png") but force the extension from the URL, since the
+ * served bytes may differ from the original upload format.
+ */
+function grabFilename(item, index) {
+  let ext = '';
+  let urlBase = '';
+  try {
+    const path = new URL(item.url).pathname;
+    const m = path.match(/\.([a-z0-9]{2,5})$/i);
+    if (m) ext = '.' + m[1].toLowerCase();
+    urlBase = decodeURIComponent(path.split('/').pop() || '').replace(/\.[a-z0-9]{2,5}$/i, '');
+  } catch { /* malformed URL — fall through to defaults */ }
+
+  const nameBase = (item.name || '')
+    .replace(/\.[a-z0-9]{2,5}$/i, '')
+    .replace(/[\\/:*?"<>|]/g, '_')
+    .trim()
+    .replace(/[._\s]+$/, '');
+
+  const base = nameBase || urlBase || `media-${index + 1}`;
+  return base + ext;
+}
+
 const messageHandlers = {
   deleteStickyNote(message) {
     if (!message.id) return;
@@ -515,7 +540,8 @@ const messageHandlers = {
   },
 
   downloadMedia(message, sender, sendResponse) {
-    const urls = Array.isArray(message.urls) ? message.urls : [];
+    const items = (Array.isArray(message.items) ? message.items : [])
+      .filter(it => it && typeof it.url === 'string');
     const pageKey = message.pageKey || 'unknown';
     let seen = grabState.get(pageKey);
     if (!seen) {
@@ -525,36 +551,32 @@ const messageHandlers = {
       if (grabState.size > 50) grabState.delete(grabState.keys().next().value);
     }
 
-    const fresh = urls.filter(u => !seen.has(u));
+    const fresh = items.filter(it => !seen.has(it.url));
     if (!fresh.length) {
       // Cycle complete — reset so the next click starts over
       grabState.delete(pageKey);
-      sendResponse({ batch: 0, downloaded: urls.length, total: urls.length, done: true });
+      sendResponse({ batch: 0, downloaded: items.length, total: items.length, done: true });
       return true;
     }
 
     const batch = fresh.slice(0, GRAB_BATCH_SIZE);
-    batch.forEach((url, i) => {
-      seen.add(url);
+    batch.forEach((item, i) => {
+      seen.add(item.url);
       setTimeout(() => {
-        let filename = `media-${i + 1}`;
-        try {
-          filename = decodeURIComponent(url.split('/').pop().split('?')[0]) || filename;
-        } catch { /* malformed URI — keep fallback */ }
         chrome.downloads.download({
-          url,
-          filename,
+          url: item.url,
+          filename: grabFilename(item, i),
           conflictAction: 'uniquify',
           saveAs: false
         }, (downloadId) => {
           if (chrome.runtime.lastError || downloadId === undefined) {
-            seen.delete(url); // failed — allow retry on next salvo
+            seen.delete(item.url); // failed — allow retry on next salvo
           }
         });
       }, i * 300);
     });
 
-    sendResponse({ batch: batch.length, downloaded: seen.size, total: urls.length, done: false });
+    sendResponse({ batch: batch.length, downloaded: seen.size, total: items.length, done: false });
     return true;
   },
 
