@@ -401,30 +401,29 @@ function withPostPrefix(item, filename) {
   return p ? `${p}_${filename}` : filename;
 }
 
-/**
- * Attachment-page download via chrome.downloads on the page URL. The API's
- * filename parameter overrides the server's Content-Disposition (unlike
- * in-page a[download] clicks), so the post-ID-prefixed slug name sticks.
- * If the slug carries no extension token we omit filename entirely and let
- * Content-Disposition name it — correctness beats the prefix.
- * NOTE: no fetch+blob here — service workers have no URL.createObjectURL.
- */
-function downloadAttachmentPage(item) {
+// Desired filenames for attachment-page downloads, url -> postId_slug.ext.
+// Populated when a batch is queued; consumed by onDeterminingFilename below.
+// In-page clicks inherit the server's Content-Disposition, which would
+// discard the prefix — suggest() is the only rename authority that wins.
+// NOTE: direct chrome.downloads on these URLs gets .htm error pages (the
+// endpoint demands the page Referer + session); fetch+blob is impossible
+// (service workers have no URL.createObjectURL). In-page clicks it is.
+const pendingGrabNames = new Map();
+
+function attachmentFilename(item) {
   const { base, ext } = parseAttachmentSlug(item.url);
+  if (!ext) return ''; // no ext token — let Content-Disposition name it
   const safeBase = (base || 'attachment').replace(/[\\/:*?"<>|]/g, '_').trim() || 'attachment';
-  const opts = {
-    url: item.url,
-    conflictAction: 'uniquify',
-    saveAs: false
-  };
-  if (ext) opts.filename = withPostPrefix(item, safeBase + ext);
-  chrome.downloads.download(opts, (downloadId) => {
-    if (chrome.runtime.lastError || downloadId === undefined) {
-      grabbedSet.delete(item.url);
-      persistGrabbedSet(); // allow retry on next salvo
-    }
-  });
+  return withPostPrefix(item, safeBase + ext);
 }
+
+chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
+  const wanted = pendingGrabNames.get(item.url);
+  if (wanted) {
+    pendingGrabNames.delete(item.url);
+    suggest({ filename: wanted, conflictAction: 'uniquify' });
+  }
+});
 
 // HTML guard: attachment pages that fail the server permission check return
 // a text/html page, which must never be saved. Cancel + erase it and un-see
@@ -634,12 +633,38 @@ const messageHandlers = {
       batch.forEach(item => seen.add(item.url));
       persistGrabbedSet();
 
-      // Attachment pages (serverName): background fetch + blob download with
-      // real post-ID-prefixed filenames (see downloadAttachmentPage),
-      // staggered 1.5s per the operator's workflow.
-      batch.filter(it => it.serverName).forEach((item, i) => {
-        setTimeout(() => { downloadAttachmentPage(item); }, i * 1500);
-      });
+      // Attachment pages (serverName): replicate the Fancybox download
+      // button — same-origin in-page <a download> clicks, 1.5s stagger per
+      // the operator's workflow. Only this path carries the Referer +
+      // session the endpoint demands (direct API downloads get .htm).
+      // Filenames are applied by onDeterminingFilename via pendingGrabNames.
+      const clickItems = batch.filter(it => it.serverName);
+      if (clickItems.length && message.tabId) {
+        clickItems.forEach(item => {
+          const name = attachmentFilename(item);
+          if (name) {
+            if (pendingGrabNames.size > 5000) pendingGrabNames.delete(pendingGrabNames.keys().next().value);
+            pendingGrabNames.set(item.url, name);
+          }
+        });
+        chrome.scripting.executeScript({
+          target: { tabId: message.tabId },
+          func: (urls) => {
+            urls.forEach((u, i) => {
+              setTimeout(() => {
+                const a = document.createElement('a');
+                a.href = u;
+                a.download = '';
+                a.rel = 'noopener';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+              }, i * 1500);
+            });
+          },
+          args: [clickItems.map(it => it.url)]
+        }, () => { void chrome.runtime.lastError; });
+      }
 
       // Direct media URLs: chrome.downloads — cross-origin a[download]
       // clicks are ignored per spec and would navigate the tab instead of saving.

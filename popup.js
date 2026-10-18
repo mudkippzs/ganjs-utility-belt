@@ -498,13 +498,15 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!res.items.length) { flashTileLabel(grabBtn, 'NO MEDIA'); return; }
       // Two download paths, chosen in background per item:
       // - attachment pages (serverName): in-page synthetic a[download] clicks
-      //   (Fancybox-button parity — Referer + session, server names the file)
+      //   (Fancybox-button parity — Referer + session; the only path that
+      //   gets real files). Renamed via chrome.downloads.onDeterminingFilename
+      //   in the background, which overrides Content-Disposition.
       // - direct media URLs: chrome.downloads (cross-origin clicks would
       //   navigate the tab instead of downloading)
-      // Background tracks already-queued URLs per page, so repeated clicks
-      // walk the full list in batches until done.
+      // Background persists already-queued URLs, so repeated clicks walk the
+      // list in batches and later clicks grab only newly added media.
       chrome.runtime.sendMessage(
-        { action: 'downloadMedia', items: res.items },
+        { action: 'downloadMedia', items: res.items, tabId },
         (reply) => {
           if (chrome.runtime.lastError || !reply) {
             flashTileLabel(grabBtn, 'ERROR');
