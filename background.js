@@ -357,6 +357,10 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 let toastLeaderTabId = null;
 
+// Grab-batch continuation state: pageKey -> Set of already-queued media URLs
+const grabState = new Map();
+const GRAB_BATCH_SIZE = 100;
+
 const messageHandlers = {
   deleteStickyNote(message) {
     if (!message.id) return;
@@ -511,8 +515,27 @@ const messageHandlers = {
   },
 
   downloadMedia(message, sender, sendResponse) {
-    const urls = Array.isArray(message.urls) ? message.urls.slice(0, 100) : [];
-    urls.forEach((url, i) => {
+    const urls = Array.isArray(message.urls) ? message.urls : [];
+    const pageKey = message.pageKey || 'unknown';
+    let seen = grabState.get(pageKey);
+    if (!seen) {
+      seen = new Set();
+      grabState.set(pageKey, seen);
+      // Bound memory: drop oldest page state beyond 50 keys
+      if (grabState.size > 50) grabState.delete(grabState.keys().next().value);
+    }
+
+    const fresh = urls.filter(u => !seen.has(u));
+    if (!fresh.length) {
+      // Cycle complete — reset so the next click starts over
+      grabState.delete(pageKey);
+      sendResponse({ batch: 0, downloaded: urls.length, total: urls.length, done: true });
+      return true;
+    }
+
+    const batch = fresh.slice(0, GRAB_BATCH_SIZE);
+    batch.forEach((url, i) => {
+      seen.add(url);
       setTimeout(() => {
         let filename = `media-${i + 1}`;
         try {
@@ -523,10 +546,15 @@ const messageHandlers = {
           filename,
           conflictAction: 'uniquify',
           saveAs: false
-        }, () => { void chrome.runtime.lastError; });
+        }, (downloadId) => {
+          if (chrome.runtime.lastError || downloadId === undefined) {
+            seen.delete(url); // failed — allow retry on next salvo
+          }
+        });
       }, i * 300);
     });
-    sendResponse({ queued: urls.length });
+
+    sendResponse({ batch: batch.length, downloaded: seen.size, total: urls.length, done: false });
     return true;
   },
 

@@ -382,7 +382,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Engine-agnostic heuristic: an anchor whose href ends in a media
   // extension and which wraps an <img> is a thumbnail-to-full pair
   // (4chan .fileThumb, Kokonotsuba/TinyIB .attachmentAnchor, etc.).
-  const MAX_GRAB_SALVO = 100;
   const expandBtn = document.getElementById('expandAllImages');
   const grabBtn = document.getElementById('grabAllImages');
 
@@ -434,17 +433,27 @@ document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('a[href]').forEach(a => {
         if (mediaExt.test(a.href) && a.querySelector('img')) urls.add(a.href);
       });
-      return [...urls];
-    }, (urls) => {
-      if (urls === null) { flashTileLabel(grabBtn, 'NO ACCESS'); return; }
-      if (!urls.length) { flashTileLabel(grabBtn, 'NO MEDIA'); return; }
-      const salvo = urls.slice(0, MAX_GRAB_SALVO);
+      return { urls: [...urls], key: location.origin + location.pathname };
+    }, (res) => {
+      if (res === null) { flashTileLabel(grabBtn, 'NO ACCESS'); return; }
+      if (!res.urls.length) { flashTileLabel(grabBtn, 'NO MEDIA'); return; }
       // Route through chrome.downloads (background) — in-page a[download]
       // clicks are ignored cross-origin and would navigate the tab instead.
-      chrome.runtime.sendMessage({ action: 'downloadMedia', urls: salvo });
-      flashTileLabel(grabBtn, urls.length > MAX_GRAB_SALVO
-        ? `${salvo.length} OF ${urls.length}`
-        : `${salvo.length} GRABBED`);
+      // Background tracks already-queued URLs per page, so repeated clicks
+      // walk the full list in batches until done.
+      chrome.runtime.sendMessage(
+        { action: 'downloadMedia', urls: res.urls, pageKey: res.key },
+        (reply) => {
+          if (chrome.runtime.lastError || !reply) {
+            flashTileLabel(grabBtn, 'ERROR');
+            return;
+          }
+          if (reply.done) { flashTileLabel(grabBtn, 'ALL DONE'); return; }
+          flashTileLabel(grabBtn, res.urls.length > reply.batch
+            ? `${reply.downloaded} OF ${reply.total}`
+            : `${reply.batch} GRABBED`);
+        }
+      );
     });
   });
 
