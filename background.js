@@ -357,9 +357,91 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 let toastLeaderTabId = null;
 
-// Grab-batch continuation state: pageKey -> Set of already-queued media URLs
-const grabState = new Map();
-const GRAB_BATCH_SIZE = 100;
+// Grab idempotency: every queued URL is persisted to chrome.storage.local so
+// repeats never re-download — survives service-worker restarts (the old
+// in-memory set was the source of duplicate "(1)" downloads). Terminal
+// ALL DONE; re-clicking a thread later grabs only newly added media.
+const GRAB_BATCH_SIZE = 250;
+const GRAB_SEEN_KEY = 'grabbedUrls';
+const GRAB_SEEN_MAX = 20000;
+let grabbedSet = null; // lazy-loaded Set<string>
+
+async function loadGrabbedSet() {
+  if (grabbedSet) return grabbedSet;
+  const res = await chrome.storage.local.get({ [GRAB_SEEN_KEY]: [] });
+  grabbedSet = new Set(res[GRAB_SEEN_KEY]);
+  return grabbedSet;
+}
+
+function persistGrabbedSet() {
+  let arr = [...grabbedSet];
+  if (arr.length > GRAB_SEEN_MAX) arr = arr.slice(arr.length - GRAB_SEEN_MAX);
+  chrome.storage.local.set({ [GRAB_SEEN_KEY]: arr });
+}
+
+const MIME_EXT = {
+  'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif',
+  'image/webp': '.webp', 'image/avif': '.avif',
+  'video/webm': '.webm', 'video/mp4': '.mp4'
+};
+
+/**
+ * Parse a XenForo attachment slug out of an attachment page URL.
+ * Handles query-style (index.php?attachments/bi-1-png.2352220/) and
+ * path-style (/forum/attachments/bi-1-png.2352220/).
+ * "bi-1-png.2352220" -> { base: "bi-1", ext: ".png" }
+ */
+function parseAttachmentSlug(url) {
+  const m = url.match(/attachments?\/([^/?#]+)/);
+  if (!m) return { base: '', ext: '' };
+  const slug = m[1].replace(/\.\d+$/, ''); // strip numeric attachment id
+  const extM = slug.match(/-(png|jpe?g|gif|webp|avif|webm|mp4)$/i);
+  if (extM) {
+    return { base: slug.slice(0, extM.index), ext: '.' + extM[1].toLowerCase().replace('jpeg', 'jpg') };
+  }
+  return { base: slug, ext: '' };
+}
+
+function withPostPrefix(item, filename) {
+  const p = (item.postId || '').replace(/\D/g, '');
+  return p ? `${p}_${filename}` : filename;
+}
+
+/**
+ * Attachment-page download: fetch with the operator's session cookies,
+ * verify the payload is media (permission failures return HTML — never
+ * saved), then download the blob with a post-ID-prefixed filename.
+ * Content-Disposition cannot override this path.
+ */
+async function downloadAttachmentPage(item) {
+  const { base, ext } = parseAttachmentSlug(item.url);
+  const safeBase = (base || 'attachment').replace(/[\\/:*?"<>|]/g, '_').trim() || 'attachment';
+  try {
+    const resp = await fetch(item.url, { credentials: 'include' });
+    const type = (resp.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+    if (!resp.ok || type === 'text/html' || type === 'text/xml') {
+      throw new Error(`not media: ${resp.status} ${type}`);
+    }
+    const blob = await resp.blob();
+    const objUrl = URL.createObjectURL(blob);
+    const filename = withPostPrefix(item, safeBase + (ext || MIME_EXT[type] || ''));
+    chrome.downloads.download({
+      url: objUrl,
+      filename,
+      conflictAction: 'uniquify',
+      saveAs: false
+    }, (downloadId) => {
+      setTimeout(() => URL.revokeObjectURL(objUrl), 30000);
+      if (chrome.runtime.lastError || downloadId === undefined) {
+        grabbedSet.delete(item.url);
+        persistGrabbedSet(); // allow retry on next salvo
+      }
+    });
+  } catch {
+    grabbedSet.delete(item.url);
+    persistGrabbedSet(); // allow retry on next salvo
+  }
+}
 
 /**
  * Filename for a grabbed item: prefer the page-suggested name (e.g. XenForo
@@ -540,70 +622,50 @@ const messageHandlers = {
   },
 
   downloadMedia(message, sender, sendResponse) {
-    const items = (Array.isArray(message.items) ? message.items : [])
-      .filter(it => it && typeof it.url === 'string');
-    const pageKey = message.pageKey || 'unknown';
-    let seen = grabState.get(pageKey);
-    if (!seen) {
-      seen = new Set();
-      grabState.set(pageKey, seen);
-      // Bound memory: drop oldest page state beyond 50 keys
-      if (grabState.size > 50) grabState.delete(grabState.keys().next().value);
-    }
+    loadGrabbedSet().then(seen => {
+      const items = (Array.isArray(message.items) ? message.items : [])
+        .filter(it => it && typeof it.url === 'string');
 
-    const fresh = items.filter(it => !seen.has(it.url));
-    if (!fresh.length) {
-      // Cycle complete — reset so the next click starts over
-      grabState.delete(pageKey);
-      sendResponse({ batch: 0, downloaded: items.length, total: items.length, done: true });
-      return true;
-    }
+      const fresh = items.filter(it => !seen.has(it.url));
+      if (!fresh.length) {
+        // Terminal: everything on this page was grabbed before. Later clicks
+        // grab only media newly added to the thread (incremental sync).
+        sendResponse({ batch: 0, downloaded: items.length, total: items.length, done: true });
+        return;
+      }
 
-    const batch = fresh.slice(0, GRAB_BATCH_SIZE);
-    batch.forEach(item => seen.add(item.url));
+      const batch = fresh.slice(0, GRAB_BATCH_SIZE);
+      batch.forEach(item => seen.add(item.url));
+      persistGrabbedSet();
 
-    // Attachment pages (serverName): replicate the Fancybox download button —
-    // a same-origin in-page <a download> click, staggered 1.5s. Carries the
-    // page Referer + session; the server's Content-Disposition names the file.
-    const clickUrls = batch.filter(it => it.serverName).map(it => it.url);
-    if (clickUrls.length && message.tabId) {
-      chrome.scripting.executeScript({
-        target: { tabId: message.tabId },
-        func: (urls) => {
-          urls.forEach((u, i) => {
-            setTimeout(() => {
-              const a = document.createElement('a');
-              a.href = u;
-              a.download = '';
-              a.rel = 'noopener';
-              document.body.appendChild(a);
-              a.click();
-              a.remove();
-            }, i * 1500);
+      // Attachment pages (serverName): background fetch + blob download with
+      // real post-ID-prefixed filenames (see downloadAttachmentPage),
+      // staggered 1.5s per the operator's workflow.
+      batch.filter(it => it.serverName).forEach((item, i) => {
+        setTimeout(() => { downloadAttachmentPage(item); }, i * 1500);
+      });
+
+      // Direct media URLs: chrome.downloads — cross-origin a[download]
+      // clicks are ignored per spec and would navigate the tab instead of saving.
+      batch.filter(it => !it.serverName).forEach((item, i) => {
+        setTimeout(() => {
+          chrome.downloads.download({
+            url: item.url,
+            filename: withPostPrefix(item, grabFilename(item, i)),
+            conflictAction: 'uniquify',
+            saveAs: false
+          }, (downloadId) => {
+            if (chrome.runtime.lastError || downloadId === undefined) {
+              seen.delete(item.url);
+              persistGrabbedSet(); // failed — allow retry on next salvo
+            }
           });
-        },
-        args: [clickUrls]
-      }, () => { void chrome.runtime.lastError; });
-    }
+        }, i * 300);
+      });
 
-    // Direct media URLs: chrome.downloads — cross-origin a[download] clicks
-    // are ignored per spec and would navigate the tab instead of saving.
-    batch.filter(it => !it.serverName).forEach((item, i) => {
-      setTimeout(() => {
-        chrome.downloads.download({
-          url: item.url,
-          filename: grabFilename(item, i),
-          conflictAction: 'uniquify',
-          saveAs: false
-        }, (downloadId) => {
-          if (chrome.runtime.lastError || downloadId === undefined) {
-            seen.delete(item.url); // failed — allow retry on next salvo
-          }
-        });
-      }, i * 300);
+      const already = items.length - fresh.length;
+      sendResponse({ batch: batch.length, downloaded: already + batch.length, total: items.length, done: false });
     });
-
-    sendResponse({ batch: batch.length, downloaded: seen.size, total: items.length, done: false });
     return true;
   },
 

@@ -447,12 +447,31 @@ document.addEventListener('DOMContentLoaded', () => {
       const mediaExt = /\.(jpe?g|png|gif|webp|avif|webm|mp4)(\?.*)?$/i;
       // XenForo & friends: lightbox anchors wrap attachment images
       const lightboxSel = '.js-lbImage, [data-fancybox], [rel~="lightbox"]';
-      const items = new Map(); // url -> { name, serverName }
+      // Source post ID for filename prefixes (keeps numbered uploads like
+      // 1.jpg from different posts colliding and preserves thread order)
+      const postIdOf = (a) => {
+        const lb = a.closest('[data-lb-id]');
+        if (lb) {
+          const m = (lb.getAttribute('data-lb-id') || '').match(/(\d+)\D*$/);
+          if (m) return m[1];
+        }
+        const fb = (a.getAttribute('data-fancybox') || '').match(/(\d+)\D*$/);
+        if (fb) return fb[1];
+        const pn = a.closest('[data-post-number]');
+        if (pn) return pn.getAttribute('data-post-number');
+        const post = a.closest('.post[id], .postContainer[id], article[id]');
+        if (post) {
+          const m = post.id.match(/(\d+)\D*$/);
+          if (m) return m[1];
+        }
+        return '';
+      };
+      const items = new Map(); // url -> { name, serverName, postId }
       document.querySelectorAll('a[href]').forEach(a => {
         const img = a.querySelector('img');
         if (!img) return;
         if (mediaExt.test(a.href)) {
-          if (!items.has(a.href)) items.set(a.href, { name: '', serverName: false });
+          if (!items.has(a.href)) items.set(a.href, { name: '', serverName: false, postId: postIdOf(a) });
           return;
         }
         if (a.matches(lightboxSel)) {
@@ -460,20 +479,19 @@ document.addEventListener('DOMContentLoaded', () => {
           // data/attachments/ is typically server-protected (nginx internal /
           // referrer checks) and returns HTML to a download manager, while
           // the attachment page passes the PHP permission check and serves
-          // the real file with a Content-Disposition filename.
+          // the real file.
           if (/attachments?\//.test(a.href)) {
-            if (!items.has(a.href)) items.set(a.href, { name: '', serverName: true });
+            if (!items.has(a.href)) items.set(a.href, { name: '', serverName: true, postId: postIdOf(a) });
             return;
           }
           const full = [img.dataset.src, img.currentSrc, img.src].find(u => u && mediaExt.test(u));
           if (full && !items.has(full)) {
-            items.set(full, { name: (img.alt || img.title || '').trim(), serverName: false });
+            items.set(full, { name: (img.alt || img.title || '').trim(), serverName: false, postId: postIdOf(a) });
           }
         }
       });
       return {
-        items: [...items].map(([url, v]) => ({ url, name: v.name, serverName: v.serverName })),
-        key: location.origin + location.pathname
+        items: [...items].map(([url, v]) => ({ url, name: v.name, serverName: v.serverName, postId: v.postId }))
       };
     }, (res, tabId) => {
       if (res === null) { flashTileLabel(grabBtn, 'NO ACCESS'); return; }
@@ -486,7 +504,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Background tracks already-queued URLs per page, so repeated clicks
       // walk the full list in batches until done.
       chrome.runtime.sendMessage(
-        { action: 'downloadMedia', items: res.items, pageKey: res.key, tabId },
+        { action: 'downloadMedia', items: res.items },
         (reply) => {
           if (chrome.runtime.lastError || !reply) {
             flashTileLabel(grabBtn, 'ERROR');
