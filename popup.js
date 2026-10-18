@@ -496,16 +496,16 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-  // Shared salvo feedback for both grab buttons.
+  // Shared salvo feedback for both grab buttons. Downloads continue in the
+  // background after the popup closes (2s apart, failures auto-requeue), so
+  // the label reports what was queued, not what finished.
   function reportGrab(btn, total, reply) {
     if (chrome.runtime.lastError || !reply) {
       flashTileLabel(btn, 'ERROR');
       return;
     }
     if (reply.done) { flashTileLabel(btn, 'ALL DONE'); return; }
-    flashTileLabel(btn, total > reply.batch
-      ? `${reply.downloaded} OF ${reply.total}`
-      : `${reply.batch} GRABBED`);
+    flashTileLabel(btn, `${reply.batch} QUEUED`);
   }
 
   grabBtn.addEventListener('click', () => {
@@ -519,8 +519,9 @@ document.addEventListener('DOMContentLoaded', () => {
       //   in the background, which overrides Content-Disposition.
       // - direct media URLs: chrome.downloads (cross-origin clicks would
       //   navigate the tab instead of downloading)
-      // Background persists already-queued URLs, so repeated clicks walk the
-      // list in batches and later clicks grab only newly added media.
+      // Background persists already-queued URLs, so later clicks grab only
+      // newly added media; the queue paces downloads 2s apart and requeues
+      // failures automatically.
       chrome.runtime.sendMessage(
         { action: 'downloadMedia', items: res.items, tabId },
         (reply) => reportGrab(grabBtn, res.items.length, reply)

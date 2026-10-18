@@ -361,7 +361,6 @@ let toastLeaderTabId = null;
 // repeats never re-download — survives service-worker restarts (the old
 // in-memory set was the source of duplicate "(1)" downloads). Terminal
 // ALL DONE; re-clicking a thread later grabs only newly added media.
-const GRAB_BATCH_SIZE = 250;
 const GRAB_SEEN_KEY = 'grabbedUrls';
 const GRAB_SEEN_MAX = 20000;
 let grabbedSet = null; // lazy-loaded Set<string>
@@ -401,14 +400,14 @@ function withPostPrefix(item, filename) {
   return p ? `${p}_${filename}` : filename;
 }
 
-// Desired filenames for attachment-page downloads, url -> postId_slug.ext.
-// Populated when a batch is queued; consumed by onDeterminingFilename below.
+// In-flight attachment-page downloads, url -> { filename, item, tabId }.
+// Populated at dispatch; consumed by onDeterminingFilename below.
 // In-page clicks inherit the server's Content-Disposition, which would
 // discard the prefix — suggest() is the only rename authority that wins.
 // NOTE: direct chrome.downloads on these URLs gets .htm error pages (the
 // endpoint demands the page Referer + session); fetch+blob is impossible
 // (service workers have no URL.createObjectURL). In-page clicks it is.
-const pendingGrabNames = new Map();
+const pendingGrab = new Map();
 
 function attachmentFilename(item) {
   const { base, ext } = parseAttachmentSlug(item.url);
@@ -418,17 +417,187 @@ function attachmentFilename(item) {
 }
 
 chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
-  const wanted = pendingGrabNames.get(item.url);
-  if (wanted) {
-    pendingGrabNames.delete(item.url);
-    suggest({ filename: wanted, conflictAction: 'uniquify' });
+  const pending = pendingGrab.get(item.url);
+  if (pending) {
+    pendingGrab.delete(item.url);
+    if (pending.filename) suggest({ filename: pending.filename, conflictAction: 'uniquify' });
   }
 });
 
-// HTML guard: attachment pages that fail the server permission check return
-// a text/html page, which must never be saved. Cancel + erase it and un-see
-// the URL so the next salvo can retry (e.g. after re-login).
+// --- Grab download queue ---
+// One click enqueues EVERYTHING fresh; the pump dispatches one item every
+// GRAB_GAP_MS. A long salvo would outlive the 30s service-worker idle limit,
+// so the queue is persisted and resumed on startup, and the pump chains 2s
+// hops (each hop is well inside the idle window — download activity resets
+// it). Failures are noted and requeued at the tail (GRAB_MAX_ATTEMPTS),
+// then stay un-seen so the next Grab click can retry them fresh.
+const GRAB_GAP_MS = 2000;
+const GRAB_MAX_ATTEMPTS = 3;
+const GRAB_QUEUE_KEY = 'grabQueue';
+let grabQueue = null; // lazy-loaded [{ item, tabId }]
+let grabPumping = false;
+
+async function loadGrabQueue() {
+  if (grabQueue) return grabQueue;
+  const res = await chrome.storage.local.get({ [GRAB_QUEUE_KEY]: [] });
+  grabQueue = res[GRAB_QUEUE_KEY];
+  return grabQueue;
+}
+
+function saveGrabQueue() {
+  chrome.storage.local.set({ [GRAB_QUEUE_KEY]: grabQueue.slice(0, 10000) });
+}
+
+async function enqueueGrab(entries) {
+  const seen = await loadGrabbedSet();
+  await loadGrabQueue();
+  entries.forEach(e => seen.add(e.item.url));
+  persistGrabbedSet();
+  grabQueue.push(...entries);
+  saveGrabQueue();
+  pumpGrabQueue();
+}
+
+// Failed downloads requeue at the tail. The URL stays SEEN while queued so
+// a Grab click can't double-enqueue it; only when attempts run out is it
+// un-seen, so the next Grab click treats it as fresh.
+function noteGrabFailure(item, tabId) {
+  const attempts = (item.attempts || 0) + 1;
+  if (attempts >= GRAB_MAX_ATTEMPTS || !grabQueue) {
+    if (grabbedSet) {
+      grabbedSet.delete(item.url);
+      persistGrabbedSet();
+    }
+    return;
+  }
+  item.attempts = attempts;
+  grabQueue.push({ item, tabId });
+  saveGrabQueue();
+  pumpGrabQueue();
+}
+
+// Click-tab resolution at dispatch time: original tab if it's still on the
+// domain, else any open tab on the domain, else failure path.
+async function resolveClickTab(item, tabId) {
+  let host = '';
+  try { host = new URL(item.url).hostname; } catch { return null; }
+  if (typeof tabId === 'number') {
+    try {
+      const t = await chrome.tabs.get(tabId);
+      if (t?.id && t.url && new URL(t.url).hostname === host) return t.id;
+    } catch { /* original tab gone — fall through */ }
+  }
+  const tabs = await chrome.tabs.query({});
+  const cand = tabs.find(t => {
+    try { return t.id && t.url && new URL(t.url).hostname === host; } catch { return false; }
+  });
+  return cand ? cand.id : null;
+}
+
+function queueDirectDownload(item, tabId) {
+  chrome.downloads.download({
+    url: item.url,
+    filename: withPostPrefix(item, grabFilename(item, 0)),
+    conflictAction: 'uniquify',
+    saveAs: false
+  }, (downloadId) => {
+    if (chrome.runtime.lastError || downloadId === undefined) {
+      noteGrabFailure(item, tabId);
+      return;
+    }
+    grabDownloadIds.set(downloadId, { item, tabId });
+  });
+}
+
+// In-page click (Fancybox-button parity). Must stay self-contained —
+// chrome.scripting serializes the function source.
+function clickAttachmentPage(url) {
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '';
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+async function dispatchGrabItem({ item, tabId }) {
+  if (!item.serverName) {
+    queueDirectDownload(item, tabId);
+    return;
+  }
+  const target = await resolveClickTab(item, tabId);
+  if (target === null) {
+    noteGrabFailure(item, tabId);
+    return;
+  }
+  if (pendingGrab.size > 5000) pendingGrab.delete(pendingGrab.keys().next().value);
+  pendingGrab.set(item.url, {
+    filename: attachmentFilename(item),
+    item,
+    tabId: target
+  });
+  chrome.scripting.executeScript({
+    target: { tabId: target },
+    func: clickAttachmentPage,
+    args: [item.url]
+  }, () => {
+    if (chrome.runtime.lastError) {
+      pendingGrab.delete(item.url);
+      noteGrabFailure(item, target);
+    }
+  });
+}
+
+async function pumpGrabQueue() {
+  if (grabPumping) return;
+  grabPumping = true;
+  try {
+    while (grabQueue.length) {
+      const head = grabQueue.shift();
+      saveGrabQueue();
+      await dispatchGrabItem(head);
+      if (grabQueue.length) {
+        await new Promise(r => setTimeout(r, GRAB_GAP_MS));
+      }
+    }
+  } finally {
+    grabPumping = false;
+  }
+}
+
+// Track in-flight downloads so mid-transfer failures also requeue.
+const grabDownloadIds = new Map(); // downloadId -> { item, tabId }
+
+chrome.downloads.onChanged.addListener((delta) => {
+  const rec = grabDownloadIds.get(delta.id);
+  if (!rec || !delta.state) return;
+  if (delta.state.current === 'complete') {
+    grabDownloadIds.delete(delta.id);
+  } else if (delta.state.current === 'interrupted') {
+    grabDownloadIds.delete(delta.id);
+    noteGrabFailure(rec.item, rec.tabId);
+  }
+});
+
+// HTML guard + in-flight registration. Attachment pages that fail the
+// server permission check return text/html, which must never be saved:
+// cancel + erase, note the failure, requeue.
 chrome.downloads.onCreated.addListener((item) => {
+  const pending = pendingGrab.get(item.url);
+  if (pending) {
+    if (item.mime === 'text/html') {
+      chrome.downloads.cancel(item.id, () => {
+        chrome.downloads.erase({ id: item.id }, () => { void chrome.runtime.lastError; });
+      });
+      pendingGrab.delete(item.url);
+      noteGrabFailure(pending.item, pending.tabId);
+      return;
+    }
+    grabDownloadIds.set(item.id, { item: pending.item, tabId: pending.tabId });
+    return;
+  }
+  // Unknown-source download of a grabbed URL: still never save HTML.
   if (item.mime === 'text/html' && grabbedSet && grabbedSet.has(item.url)) {
     chrome.downloads.cancel(item.id, () => {
       chrome.downloads.erase({ id: item.id }, () => { void chrome.runtime.lastError; });
@@ -437,6 +606,9 @@ chrome.downloads.onCreated.addListener((item) => {
     persistGrabbedSet();
   }
 });
+
+// Resume an interrupted salvo after a service-worker restart.
+loadGrabQueue().then(q => { if (q.length) pumpGrabQueue(); });
 
 /**
  * Filename for a grabbed item: prefer the page-suggested name (e.g. XenForo
@@ -616,6 +788,9 @@ const messageHandlers = {
     });
   },
 
+  // Queue every fresh media URL for download; the pump spaces them
+  // GRAB_GAP_MS apart and requeues failures automatically. Replies
+  // immediately — a big salvo keeps downloading after the popup closes.
   downloadMedia(message, sender, sendResponse) {
     loadGrabbedSet().then(seen => {
       const items = (Array.isArray(message.items) ? message.items : [])
@@ -623,69 +798,14 @@ const messageHandlers = {
 
       const fresh = items.filter(it => !seen.has(it.url));
       if (!fresh.length) {
-        // Terminal: everything on this page was grabbed before. Later clicks
-        // grab only media newly added to the thread (incremental sync).
-        sendResponse({ batch: 0, downloaded: items.length, total: items.length, done: true });
+        // Terminal: everything here was grabbed before. Later clicks grab
+        // only media newly added to the thread (incremental sync).
+        sendResponse({ batch: 0, total: items.length, done: true });
         return;
       }
 
-      const batch = fresh.slice(0, GRAB_BATCH_SIZE);
-      batch.forEach(item => seen.add(item.url));
-      persistGrabbedSet();
-
-      // Attachment pages (serverName): replicate the Fancybox download
-      // button — same-origin in-page <a download> clicks, 1.5s stagger per
-      // the operator's workflow. Only this path carries the Referer +
-      // session the endpoint demands (direct API downloads get .htm).
-      // Filenames are applied by onDeterminingFilename via pendingGrabNames.
-      const clickItems = batch.filter(it => it.serverName);
-      if (clickItems.length && message.tabId) {
-        clickItems.forEach(item => {
-          const name = attachmentFilename(item);
-          if (name) {
-            if (pendingGrabNames.size > 5000) pendingGrabNames.delete(pendingGrabNames.keys().next().value);
-            pendingGrabNames.set(item.url, name);
-          }
-        });
-        chrome.scripting.executeScript({
-          target: { tabId: message.tabId },
-          func: (urls) => {
-            urls.forEach((u, i) => {
-              setTimeout(() => {
-                const a = document.createElement('a');
-                a.href = u;
-                a.download = '';
-                a.rel = 'noopener';
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-              }, i * 1500);
-            });
-          },
-          args: [clickItems.map(it => it.url)]
-        }, () => { void chrome.runtime.lastError; });
-      }
-
-      // Direct media URLs: chrome.downloads — cross-origin a[download]
-      // clicks are ignored per spec and would navigate the tab instead of saving.
-      batch.filter(it => !it.serverName).forEach((item, i) => {
-        setTimeout(() => {
-          chrome.downloads.download({
-            url: item.url,
-            filename: withPostPrefix(item, grabFilename(item, i)),
-            conflictAction: 'uniquify',
-            saveAs: false
-          }, (downloadId) => {
-            if (chrome.runtime.lastError || downloadId === undefined) {
-              seen.delete(item.url);
-              persistGrabbedSet(); // failed — allow retry on next salvo
-            }
-          });
-        }, i * 300);
-      });
-
-      const already = items.length - fresh.length;
-      sendResponse({ batch: batch.length, downloaded: already + batch.length, total: items.length, done: false });
+      enqueueGrab(fresh.map(item => ({ item, tabId: message.tabId })));
+      sendResponse({ batch: fresh.length, total: items.length, done: false });
     });
     return true;
   },

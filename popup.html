@@ -68,11 +68,11 @@
           <span class="hud-icon" data-icon="expand"></span>
           <span class="hud-tile-label">Expand</span>
         </button>
-        <button type="button" class="hud-tile" id="grabAllImages" title="Download every full-size media file behind the thumbnails on this page — never the thumbnails — downloads in batches of 250, click again for the next batch until ALL DONE — already-grabbed files are remembered and skipped, so later clicks only fetch new posts">
+        <button type="button" class="hud-tile" id="grabAllImages" title="Download every full-size media file behind the thumbnails on this page — never the thumbnails — everything queues in one click, downloads dispatch 2s apart and keep going after the popup closes, failures auto-requeue (3 attempts) — already-grabbed files are remembered and skipped">
           <span class="hud-icon" data-icon="grab"></span>
           <span class="hud-tile-label">Grab</span>
         </button>
-        <button type="button" class="hud-tile" id="grabDomainMedia" title="Grab from every open tab on this site's domain — collects full-size media across all of them, deduped, then downloads in batches of 250 like Grab (skips already-grabbed files, post-ID filenames) — attachment pages download via the active tab">
+        <button type="button" class="hud-tile" id="grabDomainMedia" title="Grab from every open tab on this site's domain — collects full-size media across all of them, deduped, then queues everything like Grab (2s pacing, auto-requeue, skips already-grabbed, post-ID filenames) — attachment pages download via a tab on the domain">
           <span class="hud-icon" data-icon="grabAll"></span>
           <span class="hud-tile-label">GrabAll</span>
         </button>
