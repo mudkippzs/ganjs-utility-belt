@@ -378,6 +378,76 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // --- Image-board tools: expand thumbnails / grab full-size media ---
+  // Engine-agnostic heuristic: an anchor whose href ends in a media
+  // extension and which wraps an <img> is a thumbnail-to-full pair
+  // (4chan .fileThumb, Kokonotsuba/TinyIB .attachmentAnchor, etc.).
+  const MAX_GRAB_SALVO = 100;
+  const expandBtn = document.getElementById('expandAllImages');
+  const grabBtn = document.getElementById('grabAllImages');
+
+  function runOnActiveTab(func, onResult, arg) {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs[0];
+      if (!tab?.id) return;
+      chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func,
+        args: arg !== undefined ? [arg] : []
+      }, (results) => {
+        if (chrome.runtime.lastError || !results || !results[0]) {
+          onResult(null);
+          return;
+        }
+        onResult(results[0].result);
+      });
+    });
+  }
+
+  expandBtn.addEventListener('click', () => {
+    runOnActiveTab(() => {
+      const imgExt = /\.(jpe?g|png|gif|webp|avif)(\?.*)?$/i;
+      let n = 0;
+      document.querySelectorAll('a[href]').forEach(a => {
+        if (!imgExt.test(a.href)) return;
+        const img = a.querySelector('img');
+        if (!img || img.src === a.href) return;
+        img.removeAttribute('srcset');
+        img.removeAttribute('width');
+        img.removeAttribute('height');
+        img.style.maxWidth = '100%';
+        img.style.height = 'auto';
+        img.src = a.href;
+        n++;
+      });
+      return n;
+    }, (n) => {
+      if (n === null) flashTileLabel(expandBtn, 'NO ACCESS');
+      else flashTileLabel(expandBtn, n ? `${n} EXPANDED` : 'NO THUMBS');
+    });
+  });
+
+  grabBtn.addEventListener('click', () => {
+    runOnActiveTab(() => {
+      const mediaExt = /\.(jpe?g|png|gif|webp|avif|webm|mp4)(\?.*)?$/i;
+      const urls = new Set();
+      document.querySelectorAll('a[href]').forEach(a => {
+        if (mediaExt.test(a.href) && a.querySelector('img')) urls.add(a.href);
+      });
+      return [...urls];
+    }, (urls) => {
+      if (urls === null) { flashTileLabel(grabBtn, 'NO ACCESS'); return; }
+      if (!urls.length) { flashTileLabel(grabBtn, 'NO MEDIA'); return; }
+      const salvo = urls.slice(0, MAX_GRAB_SALVO);
+      // Route through chrome.downloads (background) — in-page a[download]
+      // clicks are ignored cross-origin and would navigate the tab instead.
+      chrome.runtime.sendMessage({ action: 'downloadMedia', urls: salvo });
+      flashTileLabel(grabBtn, urls.length > MAX_GRAB_SALVO
+        ? `${salvo.length} OF ${urls.length}`
+        : `${salvo.length} GRABBED`);
+    });
+  });
+
   // --- Pomodoro start button state ---
   function updateStartButtonState() {
     pomodoroStart.disabled = pomodoroTask.value.trim() === '';

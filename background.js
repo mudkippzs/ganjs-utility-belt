@@ -510,6 +510,26 @@ const messageHandlers = {
     });
   },
 
+  downloadMedia(message, sender, sendResponse) {
+    const urls = Array.isArray(message.urls) ? message.urls.slice(0, 100) : [];
+    urls.forEach((url, i) => {
+      setTimeout(() => {
+        let filename = `media-${i + 1}`;
+        try {
+          filename = decodeURIComponent(url.split('/').pop().split('?')[0]) || filename;
+        } catch { /* malformed URI — keep fallback */ }
+        chrome.downloads.download({
+          url,
+          filename,
+          conflictAction: 'uniquify',
+          saveAs: false
+        }, () => { void chrome.runtime.lastError; });
+      }, i * 300);
+    });
+    sendResponse({ queued: urls.length });
+    return true;
+  },
+
   setNoteReminder(message, sender, sendResponse) {
     if (!message.noteId || !message.delayMs) return;
     const alarmName = `noteReminder-${message.noteId}`;

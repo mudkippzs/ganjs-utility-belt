@@ -29,7 +29,8 @@
     "activeTab",
     "contextMenus",
     "notifications",
-    "clipboardWrite"
+    "clipboardWrite",
+    "downloads"
   ],
   "options_page": "options.html",
   "content_scripts": [{
